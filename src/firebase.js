@@ -8,12 +8,12 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyBmJqDm8oIALoJ30LliE-O_EnMpDuqCO6w",
-  authDomain:        "respirar-214d9.firebaseapp.com",
-  projectId:         "respirar-214d9",
-  storageBucket:     "respirar-214d9.firebasestorage.app",
-  messagingSenderId: "835258619817",
-  appId:             "1:835258619817:web:fa3c6af49faf8833ba16b8",
+  apiKey:            "SUA_API_KEY",
+  authDomain:        "SEU_PROJETO.firebaseapp.com",
+  projectId:         "SEU_PROJETO",
+  storageBucket:     "SEU_PROJETO.appspot.com",
+  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+  appId:             "SEU_APP_ID",
 }
 
 const app = initializeApp(firebaseConfig)

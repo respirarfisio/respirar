@@ -12,7 +12,7 @@ import Relatorio   from './pages/Relatorio'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter basename="/respirar">
+    <BrowserRouter basename="/respirar-app">
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Pacientes />} />
