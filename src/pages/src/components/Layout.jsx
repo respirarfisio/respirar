@@ -38,6 +38,7 @@ export default function Layout({ user, role, logout }) {
 
   const navItems = [
     { label: 'Dashboard', icon: <BarChart3 size={15} />, path: '/dashboard' },
+    { label: 'Financeiro', icon: <DollarSign size={15} />, path: '/dashboard-financeiro' },
     { label: 'Agenda',    icon: <CalendarDays size={15} />, path: '/agenda' },
     ...(isAdmin ? [{ label: 'Admin', icon: <Settings size={15} />, path: '/admin' }] : []),
   ]
@@ -103,4 +104,3 @@ export default function Layout({ user, role, logout }) {
     </div>
   )
 }
-
