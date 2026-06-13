@@ -1,7 +1,8 @@
 // src/pages/Paciente.jsx
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, FileText, Calendar, Pencil, Trash2, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Calendar, Pencil, Trash2, TrendingUp, FileSignature, Dumbbell } from 'lucide-react'
+import Sessoes from '../components/Sessoes'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts'
@@ -178,6 +179,16 @@ export default function Paciente() {
         </button>
       </div>
 
+      {/* Ações rápidas */}
+      <div className="flex gap-10" style={{ flexWrap: 'wrap', marginBottom: 14 }}>
+        <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/termo`)}>
+          <FileSignature size={15} /> Termo de consentimento
+        </button>
+        <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/prescricao`)}>
+          <Dumbbell size={15} /> Prescrição de exercícios
+        </button>
+      </div>
+
       {/* História */}
       {paciente.historico && (
         <div className="card" style={{ marginBottom: 14 }}>
@@ -186,6 +197,9 @@ export default function Paciente() {
           {paciente.medico && <p className="text-sub" style={{ marginTop: 6 }}>Médico: {paciente.medico}</p>}
         </div>
       )}
+
+      {/* Evolução de sessões (SOAP) */}
+      <Sessoes pacienteId={pid} />
 
       {/* Evolução */}
       {avaliacoes.length >= 2 && <Evolucao avaliacoes={avaliacoes} paciente={paciente} />}

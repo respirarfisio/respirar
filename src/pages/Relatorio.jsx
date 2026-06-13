@@ -1,7 +1,7 @@
 // src/pages/Relatorio.jsx — relatório completo no padrão Respirar
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, Pencil, Sparkles } from 'lucide-react'
+import { ArrowLeft, Printer, Pencil, Sparkles, Share2 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -70,8 +70,8 @@ function LungSVG() {
 }
 
 // ─── Chave Groq — coloque aqui a sua chave do console.groq.com/keys ──────
-const GROQ_API_KEY = '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'
-const GROQ_MODEL   = 'llama-3.3-70b-versatile'
+const GROQ_API_KEY = 'SUA_CHAVE_GROQ_AQUI'
+const GROQ_MODEL   = 'llama3-70b-8192'
 
 async function chamarGroq(prompt, maxTokens = 1000) {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -194,14 +194,18 @@ export default function Relatorio() {
   const [gerando, setGerando] = useState(false)
   const [gerandoComp, setGerandoComp] = useState(false)
   const [comparativoIA, setComparativoIA] = useState('')
+  const [anteriores, setAnteriores] = useState([])
+  const [compartilhando, setCompartilhando] = useState(false)
 
   useEffect(() => {
     Promise.all([getPaciente(pid), getAvaliacao(pid, aid), listarAvaliacoes(pid)])
       .then(([p, a, avs]) => {
         setPaciente(p); setEv({ ...a })
-        const ant = avs.filter(x => x.id !== aid && x.data < a.data)
-          .sort((a, b) => b.data.localeCompare(a.data))[0]
-        setPrev(ant ?? null)
+        // todas as avaliações anteriores à atual (para o seletor de comparação)
+        const ants = avs.filter(x => x.id !== aid && x.data < a.data)
+          .sort((a, b) => b.data.localeCompare(a.data))
+        setAnteriores(ants)
+        setPrev(ants[0] ?? null)
       }).finally(() => setLoading(false))
   }, [pid, aid])
 
@@ -228,14 +232,49 @@ export default function Relatorio() {
     finally { setGerandoComp(false) }
   }, [paciente, ev, prev])
 
-  async function handlePDF() {
-    const { default: html2pdf } = await import('html2pdf.js')
-    html2pdf().set({
-      margin: [8, 8],
-      filename: `relatorio-${paciente.nome.replace(/\s+/g,'-')}-${ev.data}.pdf`,
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
-    }).from(reportRef.current).save()
+  function handlePDF() {
+    window.print()
+  }
+
+  // ── Compartilhar via WhatsApp ────────────────────────────────────────
+  async function handleWhatsApp() {
+    setCompartilhando(true)
+    try {
+      const { default: html2pdf } = await import('html2pdf.js')
+      const nomeArquivo = `relatorio-${paciente.nome.replace(/\s+/g, '-')}-${ev.data}.pdf`
+      const blob = await html2pdf().set({
+        margin: [12, 12],
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      }).from(reportRef.current).outputPdf('blob')
+
+      const file = new File([blob], nomeArquivo, { type: 'application/pdf' })
+
+      // Web Share API com arquivo (funciona no celular)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Relatório — ${paciente.nome}`,
+          text: `Relatório fisioterapêutico de ${paciente.nome} (${fmtDate(ev.data)}) — Respirar Fisioterapeutas`,
+        })
+      } else {
+        // Desktop: baixa o PDF e abre o WhatsApp Web com a mensagem
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = nomeArquivo; a.click()
+        URL.revokeObjectURL(url)
+        const msg = encodeURIComponent(
+          `Olá! Segue o relatório fisioterapêutico de ${paciente.nome} (${fmtDate(ev.data)}).\n\nRespirar Fisioterapeutas\n(84) 9 9168-8285`
+        )
+        window.open(`https://wa.me/?text=${msg}`, '_blank')
+        alert('O PDF foi baixado. Anexe-o na conversa do WhatsApp que acabou de abrir.')
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') alert('Erro ao compartilhar: ' + e.message)
+    } finally {
+      setCompartilhando(false)
+    }
   }
 
   if (loading || !ev || !paciente) return <div style={{ textAlign:'center', padding:48 }}><span className="spinner" /></div>
@@ -278,6 +317,9 @@ export default function Relatorio() {
         </div>
         <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}/avaliacao/${aid}`)}>
           <Pencil size={15} /> Editar
+        </button>
+        <button className="btn-soft" onClick={handleWhatsApp} disabled={compartilhando}>
+          {compartilhando ? <span className="spinner" /> : <Share2 size={15} />} WhatsApp
         </button>
         <button className="btn-primary" onClick={handlePDF}>
           <Printer size={16} /> Exportar PDF
@@ -606,6 +648,23 @@ export default function Relatorio() {
         {prev && (
           <div className="rep-block no-break">
             <RepH>Evolução — comparativo com {fmtDate(prev.data)}</RepH>
+
+            {/* Seletor de data — só na tela */}
+            {anteriores.length > 1 && (
+              <div className="no-print flex-center gap-8" style={{ marginBottom: 12 }}>
+                <span className="lbl" style={{ marginBottom: 0 }}>Comparar com:</span>
+                <select className="inp" style={{ maxWidth: 200 }}
+                  value={prev.id}
+                  onChange={e => {
+                    setPrev(anteriores.find(a => a.id === e.target.value))
+                    setComparativoIA('')
+                  }}>
+                  {anteriores.map(a => (
+                    <option key={a.id} value={a.id}>{fmtDate(a.data)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {(() => {
               const cp = calcEv(prev, paciente)
               const rows = [
@@ -649,13 +708,39 @@ export default function Relatorio() {
           </div>
         )}
 
+        {/* ── PRESCRIÇÃO DE EXERCÍCIOS ───────────────────────────────── */}
+        {(paciente.prescricao ?? []).length > 0 && (
+          <div className="rep-block no-break">
+            <RepH>Prescrição de Exercícios</RepH>
+            <table className="rep-table">
+              <thead>
+                <tr><th>Exercício</th><th>Séries</th><th>Rep. / Duração</th><th>Frequência</th><th>Observações</th></tr>
+              </thead>
+              <tbody>
+                {paciente.prescricao.map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>
+                      {item.nome}
+                      <div className="text-sub" style={{ fontSize: 11, fontWeight: 400 }}>{item.categoria}</div>
+                    </td>
+                    <td>{item.series || '—'}</td>
+                    <td>{item.repeticoes || '—'}</td>
+                    <td>{item.frequencia || '—'}</td>
+                    <td style={{ fontSize: 12.5 }}>{item.obs || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* ── CONCLUSÃO ───────────────────────────────────────────────── */}
         <div className="rep-block">
-          <RepH>Conclusões</RepH>
+          <RepH>Conclusão</RepH>
 
-          {/* Botão IA — não imprime */}
-          <div className="no-print" style={{ marginBottom:12 }}>
-            <button className="btn-ghost" onClick={handleGerarIA} disabled={gerando}>
+          {/* Botão IA */}
+          <div style={{ marginBottom:14 }}>
+            <button className="btn-ghost no-print" onClick={handleGerarIA} disabled={gerando}>
               <Sparkles size={15} /> {gerando ? 'Gerando conclusão com IA...' : 'Gerar conclusão com IA'}
             </button>
           </div>
@@ -667,7 +752,9 @@ export default function Relatorio() {
           )}
 
           {!ev.conclusaoIA && !ev.conclusao && (
-            <p className="text-sub no-print">Clique em "Gerar com IA" ou edite a avaliação para adicionar a conclusão.</p>
+            <p className="text-sub" style={{ fontStyle:'italic' }}>
+              Clique em "Gerar conclusão com IA" ou adicione o texto manualmente na avaliação.
+            </p>
           )}
         </div>
 

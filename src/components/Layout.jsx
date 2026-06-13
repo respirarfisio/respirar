@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import { Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, BarChart3, CalendarDays } from 'lucide-react'
 
 function LungIcon() {
   return (
@@ -21,7 +21,7 @@ export default function Layout({ user, role, logout }) {
 
   return (
     <div>
-      <div className="topbar">
+      <div className="topbar no-print">
         <button onClick={() => nav('/')}
           style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, padding:0 }}>
           <LungIcon />
@@ -32,6 +32,14 @@ export default function Layout({ user, role, logout }) {
         </button>
 
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
+          <button onClick={() => nav('/dashboard')} title="Dashboard"
+            style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
+            <BarChart3 size={14} /> Dashboard
+          </button>
+          <button onClick={() => nav('/agenda')} title="Agenda"
+            style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
+            <CalendarDays size={14} /> Agenda
+          </button>
           {user?.photoURL && (
             <img src={user.photoURL} alt={user.displayName}
               style={{ width:32, height:32, borderRadius:'50%', border:'2px solid rgba(255,255,255,.2)' }} />
