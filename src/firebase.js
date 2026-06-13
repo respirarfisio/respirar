@@ -1,11 +1,11 @@
 // src/firebase.js
-// ───────────────────────────────────────────────
-// 1. Acesse https://console.firebase.google.com
-// 2. Crie um projeto → adicione um app Web
-// 3. Copie os valores abaixo da configuração do SDK
-// ───────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Substitua os valores abaixo pelos do seu projeto Firebase
+// Console → Configurações do projeto → Seus apps → SDK
+// ─────────────────────────────────────────────────────────────
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
+import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey:            "SUA_API_KEY",
@@ -17,4 +17,7 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+
+export const db       = getFirestore(app)
+export const auth     = getAuth(app)
+export const provider = new GoogleAuthProvider()

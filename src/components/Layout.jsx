@@ -1,5 +1,6 @@
 // src/components/Layout.jsx
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
+import { LogOut, Home } from 'lucide-react'
 
 function LungIcon() {
   return (
@@ -14,17 +15,61 @@ function LungIcon() {
   )
 }
 
-export default function Layout() {
+export default function Layout({ user, logout }) {
+  const nav = useNavigate()
+
   return (
     <div>
+      {/* Topbar */}
       <div className="topbar">
-        <LungIcon />
-        <div>
-          <div className="topbar-logo">re<span>spir</span>ar</div>
-          <div className="topbar-tagline">FISIOTERAPEUTAS</div>
+        <button
+          onClick={() => nav('/')}
+          style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, padding:0 }}
+        >
+          <LungIcon />
+          <div>
+            <div className="topbar-logo">re<span>spir</span>ar</div>
+            <div className="topbar-tagline">FISIOTERAPEUTAS</div>
+          </div>
+        </button>
+
+        {/* Usuário logado + botão sair */}
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:12 }}>
+          {user?.photoURL && (
+            <img
+              src={user.photoURL}
+              alt={user.displayName}
+              style={{ width:32, height:32, borderRadius:'50%', border:'2px solid rgba(255,255,255,.2)' }}
+            />
+          )}
+          <span style={{ color:'#9FB0C9', fontSize:13, display:'none' }}
+            className="hide-mobile">
+            {user?.displayName?.split(' ')[0]}
+          </span>
+          <button
+            onClick={logout}
+            title="Sair"
+            style={{
+              background:'rgba(255,255,255,.08)',
+              border:'1px solid rgba(255,255,255,.15)',
+              borderRadius:8,
+              color:'#9FB0C9',
+              padding:'6px 10px',
+              cursor:'pointer',
+              display:'flex',
+              alignItems:'center',
+              gap:6,
+              fontSize:13,
+              fontFamily:'inherit',
+            }}
+          >
+            <LogOut size={14} /> Sair
+          </button>
         </div>
       </div>
-      <div className="shell" style={{ paddingTop: 22 }}>
+
+      {/* Conteúdo */}
+      <div className="shell" style={{ paddingTop:22 }}>
         <Outlet />
       </div>
     </div>
