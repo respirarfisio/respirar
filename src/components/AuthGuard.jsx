@@ -1,9 +1,88 @@
 // src/components/AuthGuard.jsx
-// Protege todas as rotas — redireciona para login se não autenticado
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
-import { auth, provider } from '../firebase'
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
+import { auth, provider, db } from '../firebase'
 
+// ─── SUPER ADMINS — nunca podem ser removidos ─────────────────────────────
+const SUPER_ADMINS = [
+  'terciohzs@hotmail.com',
+  'ravelmarinho@gmail.com', // substitua pelo e-mail real do Ravel
+]
+
+// ─── Helpers Firebase ─────────────────────────────────────────────────────
+async function getUserDoc(email) {
+  const ref = doc(db, 'usuarios_autorizados', email.toLowerCase())
+  const snap = await getDoc(ref)
+  return snap.exists() ? snap.data() : null
+}
+
+async function isAuthorized(email) {
+  if (SUPER_ADMINS.includes(email.toLowerCase())) return true
+  const data = await getUserDoc(email)
+  return !!data
+}
+
+async function isAdmin(email) {
+  if (SUPER_ADMINS.includes(email.toLowerCase())) return true
+  const data = await getUserDoc(email)
+  return data?.role === 'admin'
+}
+
+// ─── Hook de autenticação ─────────────────────────────────────────────────
+export function useAuth() {
+  const [user, setUser]   = useState(undefined)
+  const [role, setRole]   = useState(null) // 'superadmin' | 'admin' | 'user'
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) { setUser(null); setRole(null); return }
+
+      const email = u.email.toLowerCase()
+
+      if (SUPER_ADMINS.includes(email)) {
+        setUser(u); setRole('superadmin'); return
+      }
+
+      const data = await getUserDoc(email)
+      if (data) {
+        setUser(u)
+        setRole(data.role === 'admin' ? 'admin' : 'user')
+      } else {
+        await signOut(auth)
+        setUser(null); setRole(null)
+        setError(`Acesso negado. A conta ${u.email} não está autorizada.`)
+      }
+    })
+    return unsub
+  }, [])
+
+  async function login() {
+    setError('')
+    try {
+      const result = await signInWithPopup(auth, provider)
+      const email = result.user.email.toLowerCase()
+      if (!SUPER_ADMINS.includes(email)) {
+        const data = await getUserDoc(email)
+        if (!data) {
+          await signOut(auth)
+          setError(`Acesso negado. A conta ${result.user.email} não está autorizada.`)
+        }
+      }
+    } catch (e) {
+      if (e.code !== 'auth/popup-closed-by-user') {
+        setError('Não foi possível fazer login. Tente novamente.')
+      }
+    }
+  }
+
+  async function logout() { await signOut(auth) }
+
+  return { user, role, login, logout, error }
+}
+
+// ─── Tela de login ────────────────────────────────────────────────────────
 function LungSVG() {
   return (
     <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
@@ -17,7 +96,6 @@ function LungSVG() {
   )
 }
 
-// Botão Google SVG
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48">
@@ -29,118 +107,35 @@ function GoogleIcon() {
   )
 }
 
-export function useAuth() {
-  const [user, setUser]       = useState(undefined) // undefined = ainda carregando
-  const [error, setError]     = useState('')
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => setUser(u ?? null))
-    return unsub
-  }, [])
-
-  async function login() {
-    setError('')
-    try {
-      await signInWithPopup(auth, provider)
-    } catch (e) {
-      setError('Não foi possível fazer login. Tente novamente.')
-    }
-  }
-
-  async function logout() {
-    await signOut(auth)
-  }
-
-  return { user, login, logout, error }
-}
-
-// Tela de login
 function LoginScreen({ login, error }) {
   const [loading, setLoading] = useState(false)
-
   async function handleLogin() {
-    setLoading(true)
-    await login()
-    setLoading(false)
+    setLoading(true); await login(); setLoading(false)
   }
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontFamily: "'Inter', system-ui, sans-serif",
-    }}>
-      <div style={{
-        background: '#fff',
-        borderRadius: 20,
-        padding: '48px 40px',
-        boxShadow: '0 4px 32px rgba(22,35,63,.10)',
-        textAlign: 'center',
-        maxWidth: 380,
-        width: '90%',
-      }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <LungSVG />
+    <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter',system-ui,sans-serif" }}>
+      <div style={{ background:'#fff', borderRadius:20, padding:'48px 40px', boxShadow:'0 4px 32px rgba(22,35,63,.10)', textAlign:'center', maxWidth:380, width:'90%' }}>
+        <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}><LungSVG /></div>
+        <div style={{ fontWeight:800, color:'var(--navy)', fontSize:24, marginBottom:4 }}>
+          re<span style={{ color:'var(--teal)' }}>spir</span>ar
         </div>
-        <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 24, marginBottom: 4 }}>
-          re<span style={{ color: 'var(--teal)' }}>spir</span>ar
-        </div>
-        <div style={{ color: '#9FB0C9', fontSize: 11, letterSpacing: 3, marginBottom: 32 }}>
-          FISIOTERAPEUTAS
-        </div>
-
-        <div style={{ color: 'var(--navy)', fontWeight: 600, fontSize: 16, marginBottom: 8 }}>
-          Bem-vindo
-        </div>
-        <p style={{ color: 'var(--sub)', fontSize: 14, marginBottom: 28, lineHeight: 1.5 }}>
-          Faça login com sua conta Google para acessar o sistema de avaliações.
+        <div style={{ color:'#9FB0C9', fontSize:11, letterSpacing:3, marginBottom:32 }}>FISIOTERAPEUTAS</div>
+        <div style={{ color:'var(--navy)', fontWeight:600, fontSize:16, marginBottom:8 }}>Bem-vindo</div>
+        <p style={{ color:'var(--sub)', fontSize:14, marginBottom:28, lineHeight:1.5 }}>
+          Faça login com sua conta Google para acessar o sistema.
         </p>
-
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            width: '100%',
-            padding: '12px 20px',
-            border: '1px solid #E3EAEF',
-            borderRadius: 12,
-            background: '#fff',
-            color: 'var(--ink)',
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
-            transition: 'background .15s',
-            opacity: loading ? .6 : 1,
-          }}
-          onMouseOver={e => e.currentTarget.style.background = '#F3F6F8'}
-          onMouseOut={e => e.currentTarget.style.background = '#fff'}
-        >
-          {loading
-            ? <span className="spinner" />
-            : <><GoogleIcon /> Entrar com Google</>
-          }
+        <button onClick={handleLogin} disabled={loading}
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12, width:'100%', padding:'12px 20px', border:'1px solid #E3EAEF', borderRadius:12, background:'#fff', color:'var(--ink)', fontSize:15, fontWeight:600, cursor:loading?'not-allowed':'pointer', fontFamily:'inherit', opacity:loading?.6:1 }}
+          onMouseOver={e=>e.currentTarget.style.background='#F3F6F8'}
+          onMouseOut={e=>e.currentTarget.style.background='#fff'}>
+          {loading ? <span className="spinner" /> : <><GoogleIcon /> Entrar com Google</>}
         </button>
-
         {error && (
-          <div style={{
-            marginTop: 16, padding: '10px 14px',
-            background: 'var(--bad-bg)', color: 'var(--bad)',
-            borderRadius: 10, fontSize: 13,
-          }}>
+          <div style={{ marginTop:16, padding:'10px 14px', background:'var(--bad-bg)', color:'var(--bad)', borderRadius:10, fontSize:13 }}>
             {error}
           </div>
         )}
-
-        <p style={{ color: 'var(--sub)', fontSize: 12, marginTop: 24 }}>
+        <p style={{ color:'var(--sub)', fontSize:12, marginTop:24 }}>
           Acesso restrito à equipe Respirar Fisioterapeutas.
         </p>
       </div>
@@ -148,24 +143,14 @@ function LoginScreen({ login, error }) {
   )
 }
 
-// Guard — envolve toda a aplicação
+// ─── Guard principal ──────────────────────────────────────────────────────
 export default function AuthGuard({ children }) {
-  const { user, login, logout, error } = useAuth()
+  const { user, role, login, logout, error } = useAuth()
 
-  // Ainda verificando sessão
   if (user === undefined) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <span className="spinner" />
-      </div>
-    )
+    return <div style={{ minHeight:'100vh', display:'grid', placeItems:'center' }}><span className="spinner" /></div>
   }
+  if (!user) return <LoginScreen login={login} error={error} />
 
-  // Não logado
-  if (!user) {
-    return <LoginScreen login={login} error={error} />
-  }
-
-  // Logado — passa o logout para o Layout via contexto
-  return children({ user, logout })
+  return children({ user, role, logout })
 }

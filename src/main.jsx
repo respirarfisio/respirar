@@ -4,27 +4,36 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 
-import AuthGuard  from './components/AuthGuard'
-import Layout     from './components/Layout'
-import Pacientes  from './pages/Pacientes'
-import Paciente   from './pages/Paciente'
-import Avaliacao  from './pages/Avaliacao'
-import Relatorio  from './pages/Relatorio'
+import AuthGuard from './components/AuthGuard'
+import Layout    from './components/Layout'
+import Pacientes from './pages/Pacientes'
+import Paciente  from './pages/Paciente'
+import Avaliacao from './pages/Avaliacao'
+import Relatorio from './pages/Relatorio'
+import Admin     from './pages/Admin'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter basename="/respirar">
       <AuthGuard>
-        {({ user, logout }) => (
+        {({ user, role, logout }) => (
           <Routes>
-            <Route path="/" element={<Layout user={user} logout={logout} />}>
-              <Route index                                              element={<Pacientes />} />
-              <Route path="paciente/novo"                              element={<Paciente />} />
-              <Route path="paciente/:pid"                              element={<Paciente />} />
-              <Route path="paciente/:pid/avaliacao/nova"               element={<Avaliacao />} />
-              <Route path="paciente/:pid/avaliacao/:aid"               element={<Avaliacao />} />
-              <Route path="paciente/:pid/avaliacao/:aid/relatorio"     element={<Relatorio />} />
-              <Route path="*"                                          element={<Navigate to="/" replace />} />
+            <Route path="/" element={<Layout user={user} role={role} logout={logout} />}>
+              <Route index                                          element={<Pacientes />} />
+              <Route path="paciente/novo"                          element={<Paciente />} />
+              <Route path="paciente/:pid"                          element={<Paciente />} />
+              <Route path="paciente/:pid/avaliacao/nova"           element={<Avaliacao />} />
+              <Route path="paciente/:pid/avaliacao/:aid"           element={<Avaliacao />} />
+              <Route path="paciente/:pid/avaliacao/:aid/relatorio" element={<Relatorio />} />
+
+              {/* Rota admin — só admins e super admins */}
+              <Route path="admin" element={
+                (role === 'admin' || role === 'superadmin')
+                  ? <Admin role={role} />
+                  : <Navigate to="/" replace />
+              } />
+
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         )}
