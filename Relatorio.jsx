@@ -1,18 +1,19 @@
 // src/pages/Relatorio.jsx — relatório completo no padrão Respirar
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, Pencil, Sparkles } from 'lucide-react'
+import { ArrowLeft, Printer, Pencil, Sparkles, Share2, Check, X } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
-import { getPaciente, getAvaliacao, listarAvaliacoes } from '../utils/db'
+import { getPaciente, getAvaliacao, listarAvaliacoes, salvarAvaliacao } from '../utils/db'
 import {
   predPImax, predPEmax, predGrip, predStepReps,
   predSTS5, predSTS1, calcIMC, classIMC, fcMaxTanaka,
+  predTC6, predQuadriceps, predBiceps, vo2TC6, vo2ToMETs, classTC6Pct, assimetria,
   num, r1, pct,
 } from '../calc/referencias'
-import { fmtDate, borgLabel } from '../utils/avaliacao'
+import { fmtDate, borgLabel, SERIE_TC6 } from '../utils/avaliacao'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Tag({ tone='neutral', children }) {
@@ -56,6 +57,49 @@ function ChartCard({ title, children }) {
   )
 }
 
+
+// ── Campo editável inline no relatório ───────────────────────────────────
+function EditableField({ value, onChange, rows = 4, placeholder }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  if (!editing) {
+    return (
+      <div style={{ position: "relative" }}>
+        {value
+          ? <p style={{ lineHeight: 1.7, textAlign: "justify" }}>{value}</p>
+          : <p style={{ color: "var(--sub)", fontStyle: "italic" }}>{placeholder}</p>}
+        <button className="no-print btn-ghost" onClick={() => { setDraft(value); setEditing(true) }}
+          style={{ position: "absolute", top: 0, right: 0, padding: "4px 8px", fontSize: 12 }}>
+          <Pencil size={12} /> Editar
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div>
+      <textarea className="inp" rows={rows} value={draft} onChange={e => setDraft(e.target.value)}
+        style={{ marginBottom: 8, fontSize: 13.5, lineHeight: 1.6 }} autoFocus />
+      <div className="flex gap-8">
+        <button className="btn-primary no-print" style={{ padding: "7px 12px", fontSize: 13 }}
+          onClick={() => { onChange(draft); setEditing(false) }}>
+          <Check size={13} /> Salvar
+        </button>
+        <button className="btn-ghost no-print" style={{ padding: "7px 12px", fontSize: 13 }}
+          onClick={() => setEditing(false)}>
+          <X size={13} /> Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RefBox({ children }) {
+  return (
+    <div style={{ marginTop: 10, padding: "8px 12px", background: "var(--bg)", borderRadius: 8, fontSize: 11, color: "var(--sub)", lineHeight: 1.6 }}>
+      <b>Referência:</b> {children}
+    </div>
+  )
+}
 function LungSVG() {
   return (
     <svg width="34" height="34" viewBox="0 0 64 64" fill="none">
@@ -70,8 +114,8 @@ function LungSVG() {
 }
 
 // ─── Chave Groq — coloque aqui a sua chave do console.groq.com/keys ──────
-const GROQ_API_KEY = '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'
-const GROQ_MODEL   = 'llama-3.3-70b-versatile'
+const GROQ_API_KEY = 'SUA_CHAVE_GROQ_AQUI'
+const GROQ_MODEL   = 'llama3-70b-8192'
 
 async function chamarGroq(prompt, maxTokens = 1000) {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -194,14 +238,18 @@ export default function Relatorio() {
   const [gerando, setGerando] = useState(false)
   const [gerandoComp, setGerandoComp] = useState(false)
   const [comparativoIA, setComparativoIA] = useState('')
+  const [anteriores, setAnteriores] = useState([])
+  const [compartilhando, setCompartilhando] = useState(false)
 
   useEffect(() => {
     Promise.all([getPaciente(pid), getAvaliacao(pid, aid), listarAvaliacoes(pid)])
       .then(([p, a, avs]) => {
         setPaciente(p); setEv({ ...a })
-        const ant = avs.filter(x => x.id !== aid && x.data < a.data)
-          .sort((a, b) => b.data.localeCompare(a.data))[0]
-        setPrev(ant ?? null)
+        // todas as avaliações anteriores à atual (para o seletor de comparação)
+        const ants = avs.filter(x => x.id !== aid && x.data < a.data)
+          .sort((a, b) => b.data.localeCompare(a.data))
+        setAnteriores(ants)
+        setPrev(ants[0] ?? null)
       }).finally(() => setLoading(false))
   }, [pid, aid])
 
@@ -230,6 +278,41 @@ export default function Relatorio() {
 
   function handlePDF() {
     window.print()
+  }
+
+  // ── Compartilhar via WhatsApp ────────────────────────────────────────
+  async function handleWhatsApp() {
+    // Pergunta se quer enviar para um número específico
+    const numero = prompt(
+      'Digite o número de WhatsApp do destinatário (com DDD, sem espaços ou traços).\nEx: 84991688285\n\nDeixe em branco para abrir o WhatsApp sem destinatário:',
+      ''
+    )
+    if (numero === null) return  // cancelou
+
+    const msg = encodeURIComponent(
+      `Olá! Segue o relatório fisioterapêutico de *${paciente.nome}* (avaliação de ${fmtDate(ev.data)}).
+
+📎 O PDF será gerado em seguida — clique em "Imprimir / PDF" para salvá-lo e anexe à conversa.
+
+_Respirar Fisioterapeutas_
+📍 Av. Hermes da Fonseca, 390 — Lj 05 · Natal/RN
+📱 (84) 9 9168-8285`
+    )
+
+    // Limpa o número e monta a URL
+    const numeroLimpo = numero.replace(/\D/g, '')
+    const url = numeroLimpo
+      ? `https://wa.me/55${numeroLimpo}?text=${msg}`
+      : `https://wa.me/?text=${msg}`
+
+    window.open(url, '_blank')
+
+    // Aguarda 1s e dispara a impressão para salvar o PDF
+    setTimeout(() => {
+      if (confirm('O WhatsApp foi aberto. Deseja gerar o PDF agora para anexar?')) {
+        window.print()
+      }
+    }, 800)
   }
 
   if (loading || !ev || !paciente) return <div style={{ textAlign:'center', padding:48 }}><span className="spinner" /></div>
@@ -272,6 +355,9 @@ export default function Relatorio() {
         </div>
         <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}/avaliacao/${aid}`)}>
           <Pencil size={15} /> Editar
+        </button>
+        <button className="btn-soft" onClick={handleWhatsApp} disabled={compartilhando}>
+          {compartilhando ? <span className="spinner" /> : <Share2 size={15} />} WhatsApp
         </button>
         <button className="btn-primary" onClick={handlePDF}>
           <Printer size={16} /> Exportar PDF
@@ -600,6 +686,23 @@ export default function Relatorio() {
         {prev && (
           <div className="rep-block no-break">
             <RepH>Evolução — comparativo com {fmtDate(prev.data)}</RepH>
+
+            {/* Seletor de data — só na tela */}
+            {anteriores.length > 1 && (
+              <div className="no-print flex-center gap-8" style={{ marginBottom: 12 }}>
+                <span className="lbl" style={{ marginBottom: 0 }}>Comparar com:</span>
+                <select className="inp" style={{ maxWidth: 200 }}
+                  value={prev.id}
+                  onChange={e => {
+                    setPrev(anteriores.find(a => a.id === e.target.value))
+                    setComparativoIA('')
+                  }}>
+                  {anteriores.map(a => (
+                    <option key={a.id} value={a.id}>{fmtDate(a.data)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {(() => {
               const cp = calcEv(prev, paciente)
               const rows = [
@@ -637,9 +740,212 @@ export default function Relatorio() {
             </div>
             {comparativoIA && (
               <div style={{ marginTop:10, padding:12, background:'var(--teal-light)', borderRadius:10, lineHeight:1.65, fontSize:13.5 }}>
-                {comparativoIA}
+                <EditableField
+                  value={comparativoIA}
+                  rows={4}
+                  onChange={texto => setComparativoIA(texto)}
+                />
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── TC6 ─────────────────────────────────────────────────────── */}
+        {ev.testesAtivos?.includes('tc6') && ev.tc6?.distancia && (() => {
+          const dist = num(ev.tc6.distancia)
+          const predDist = num(ev.tc6.preditoDist) ?? r1(predTC6(idade, sexo))
+          const pctDist = pct(dist, predDist)
+          const vo2 = vo2TC6(dist, idade, peso, altura)
+          const mets = vo2ToMETs(vo2)
+          const fcMax6 = num(ev.tc6.fcMax)
+          const fcRec1 = num(ev.tc6.fcRec1)
+          const fcRec3 = num(ev.tc6.fcRec3)
+          const d1 = fcMax6 && fcRec1 ? fcMax6 - fcRec1 : null
+          const d3 = fcMax6 && fcRec3 ? fcMax6 - fcRec3 : null
+          const chartTC6 = (ev.tc6.serie??[]).map(s => ({
+            t:s.t, FC:num(s.fc), SpO2:num(s.spo2), PAS:num(s.pas), PAD:num(s.pad), BORG:num(s.borg), PSE:num(s.pse),
+          }))
+          const hasChart = chartTC6.some(d => d.FC != null)
+          return (
+            <div className="rep-block">
+              <RepH>Teste de Caminhada de 6 min (TC6)</RepH>
+              <p style={{ lineHeight:1.65, marginBottom:12 }}>
+                Teste realizado conforme recomendações da ATS/ERS em corredor plano adaptado para 20 m.
+              </p>
+              <p style={{ fontWeight:700, marginBottom:8 }}>Resultados:</p>
+              <ul style={{ paddingLeft:20, lineHeight:2.2, fontSize:13.5 }}>
+                <li>Distância percorrida: <b>{dist} m</b> ({pctDist}% do predito de {predDist} m){classTC6Pct(pctDist) ? ` — aptidão cardiorrespiratória "${classTC6Pct(pctDist)}"` : ''}.</li>
+                {vo2 && <li>VO₂pico estimado (ACSM 2018): <b>{vo2} mℓ·kg⁻¹·min⁻¹</b> ({mets} METs).</li>}
+                {ev.tc6.nParadas ? <li>Realizou {ev.tc6.nParadas} parada(s) durante o teste.</li> : <li>Realizou o teste sem paradas.</li>}
+                {ev.tc6.obs && <li>{ev.tc6.obs}</li>}
+              </ul>
+              {fcMax6 && (
+                <table className="rep-table" style={{ marginTop:12 }}>
+                  <thead><tr><th>Data</th><th>FC máx</th><th>FC rec. 1 min</th><th>FC rec. 3 min</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>{fmtDate(ev.data)}</td>
+                      <td>{fcMax6} bpm</td>
+                      <td>{fcRec1 ? `${fcRec1} (Δ ${d1}) bpm` : '—'}</td>
+                      <td>{fcRec3 ? `${fcRec3} (Δ ${d3}) bpm` : '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+              {hasChart && (
+                <div className="charts-grid no-break" style={{ marginTop:14 }}>
+                  <ChartCard title="FC e SpO₂">
+                    <LineChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
+                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
+                      <Line dataKey="FC" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
+                      <Line dataKey="SpO2" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
+                    </LineChart>
+                  </ChartCard>
+                  <ChartCard title="PAS e PAD">
+                    <LineChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
+                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
+                      <Line dataKey="PAS" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
+                      <Line dataKey="PAD" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
+                    </LineChart>
+                  </ChartCard>
+                  <ChartCard title="BORG e PSE">
+                    <BarChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
+                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
+                      <Bar dataKey="BORG" fill="var(--teal)" radius={[3,3,0,0]} />
+                      <Bar dataKey="PSE" fill="var(--navy)" radius={[3,3,0,0]} />
+                    </BarChart>
+                  </ChartCard>
+                </div>
+              )}
+              {(ev.tc6.imagens??[]).length > 0 && (
+                <div style={{ marginTop:12 }}>
+                  {ev.tc6.imagens.map((img,i)=><img key={i} src={img.base64} alt={img.nome} style={{ maxWidth:260, borderRadius:8, border:'1px solid var(--border)', marginRight:8 }}/>)}
+                </div>
+              )}
+              <RefBox>Iwama et al. J Bras Pneumol. 2009;35(2):144-50 | ACSM 2018 | Dourado et al. 2021</RefBox>
+            </div>
+          )
+        })()}
+
+        {/* ── ESPIROMETRIA ─────────────────────────────────────────────── */}
+        {ev.testesAtivos?.includes('espiro') && ev.espiro?.preBD?.cvf && (() => {
+          const { preBD, posBD, temPosBD, classificacao, achados, equipamento, referencia, imagens } = ev.espiro
+          const cvfPct = preBD.cvf && preBD.cvfPred ? Math.round(preBD.cvf/preBD.cvfPred*100) : null
+          const vef1Pct = preBD.vef1 && preBD.vef1Pred ? Math.round(preBD.vef1/preBD.vef1Pred*100) : null
+          return (
+            <div className="rep-block no-break">
+              <RepH>Espirometria Forçada</RepH>
+              <p style={{ lineHeight:1.65, marginBottom:12 }}>
+                Exame realizado{equipamento ? ` em ${equipamento}` : ''}, em condições controladas de temperatura e umidade, segundo recomendações da ATS/ERS, com valores calculados para a população brasileira segundo {referencia}.
+              </p>
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>Parâmetro</th>
+                    <th>Valor pré-BD</th><th>% Predito</th><th>Predito</th>
+                    {temPosBD && <><th>Valor pós-BD</th></>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['CVF (L)', preBD.cvf, cvfPct, preBD.cvfPred, posBD?.cvf],
+                    ['VEF₁ (L)', preBD.vef1, vef1Pct, preBD.vef1Pred, posBD?.vef1],
+                    ['VEF₁/CVF (%)', preBD.rel, preBD.rel&&preBD.relPred?Math.round(preBD.rel/preBD.relPred*100):null, preBD.relPred, posBD?.rel],
+                  ].map(([name,obt,pctV,pred,pos])=>(
+                    <tr key={name}>
+                      <td style={{ fontWeight:600 }}>{name}</td>
+                      <td>{obt||'—'}</td>
+                      <td>{pctV!=null ? <Tag tone={pctV>=80?'good':'bad'}>{pctV}%</Tag> : '—'}</td>
+                      <td>{pred||'—'}</td>
+                      {temPosBD && <td>{pos||'—'}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(classificacao||achados) && (
+                <div style={{ marginTop:10 }}>
+                  {classificacao && <p style={{ fontWeight:600, marginBottom:4 }}>Achados: {classificacao}</p>}
+                  {achados && <p style={{ lineHeight:1.55 }}>{achados}</p>}
+                </div>
+              )}
+              {(imagens??[]).length > 0 && (
+                <div style={{ marginTop:12, display:'flex', gap:12, flexWrap:'wrap' }}>
+                  {imagens.map((img,i)=><img key={i} src={img.base64} alt={img.nome} style={{ maxWidth:280, borderRadius:8, border:'1px solid var(--border)' }}/>)}
+                </div>
+              )}
+              <RefBox>Pereira CAC et al. J Bras Pneumol. 2007;33(4):397-406 | ATS/ERS Task Force, 2005</RefBox>
+            </div>
+          )
+        })()}
+
+        {/* ── DINAMOMETRIA BILATERAL ───────────────────────────────────── */}
+        {ev.testesAtivos?.includes('dinamo') && (ev.dinamo?.quadD || ev.dinamo?.bicD) && (() => {
+          const qD = num(ev.dinamo.quadD), qE = num(ev.dinamo.quadE)
+          const bD = num(ev.dinamo.bicD),  bE = num(ev.dinamo.bicE)
+          const pQ = r1(predQuadriceps(idade, sexo))
+          const pB = r1(predBiceps(idade, sexo))
+          const assQ = assimetria(qD, qE)
+          const assB = assimetria(bD, bE)
+          return (
+            <div className="rep-block no-break">
+              <RepH>Dinamometria Bilateral — Quadríceps e Bíceps</RepH>
+              <table className="rep-table">
+                <thead>
+                  <tr><th>Músculo</th><th>D (kgf)</th><th>E (kgf)</th><th>Predito</th><th>% D</th><th>% E</th><th>Assimetria</th></tr>
+                </thead>
+                <tbody>
+                  {[[`Quadríceps\n(extensão joelho)`, qD, qE, pQ, assQ],
+                    [`Bíceps\n(flexão cotovelo)`,     bD, bE, pB, assB]].map(([name,d,e,pred,ass])=>(
+                    <tr key={name}>
+                      <td style={{ fontWeight:600, fontSize:12 }}>{name.replace('\n',' ')}</td>
+                      <td>{d||'—'}</td><td>{e||'—'}</td><td>{pred||'—'}</td>
+                      <td>{d&&pred?<Tag tone={d/pred>=0.8?'good':'bad'}>{Math.round(d/pred*100)}%</Tag>:'—'}</td>
+                      <td>{e&&pred?<Tag tone={e/pred>=0.8?'good':'bad'}>{Math.round(e/pred*100)}%</Tag>:'—'}</td>
+                      <td>{ass!=null?<Tag tone={ass<=10?'good':ass<=20?'warn':'bad'}>{ass}%</Tag>:'—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(assQ>20||assB>20) && (
+                <p style={{ marginTop:8, lineHeight:1.6, fontSize:13.5 }}>
+                  {assQ>20 ? `Assimetria importante de quadríceps (${assQ}%), estando o lado ${qD<qE?'D':'E'} abaixo do esperado. ` : ''}
+                  {assB>20 ? `Assimetria de bíceps (${assB}%), com lado ${bD<bE?'D':'E'} reduzido. ` : ''}
+                </p>
+              )}
+              <RefBox>Meldrum SJ et al. Physiol Meas. 2007 — predito calculado por sexo e idade</RefBox>
+            </div>
+          )
+        })()}
+
+        {/* ── PRESCRIÇÃO DE EXERCÍCIOS ───────────────────────────────── */}
+        {(paciente.prescricao ?? []).length > 0 && (
+          <div className="rep-block no-break">
+            <RepH>Prescrição de Exercícios</RepH>
+            <table className="rep-table">
+              <thead>
+                <tr><th>Exercício</th><th>Séries</th><th>Rep. / Duração</th><th>Frequência</th><th>Observações</th></tr>
+              </thead>
+              <tbody>
+                {paciente.prescricao.map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>
+                      {item.nome}
+                      <div className="text-sub" style={{ fontSize: 11, fontWeight: 400 }}>{item.categoria}</div>
+                    </td>
+                    <td>{item.series || '—'}</td>
+                    <td>{item.repeticoes || '—'}</td>
+                    <td>{item.frequencia || '—'}</td>
+                    <td style={{ fontSize: 12.5 }}>{item.obs || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
@@ -654,17 +960,16 @@ export default function Relatorio() {
             </button>
           </div>
 
-          {(ev.conclusaoIA || ev.conclusao) && (
-            <p style={{ lineHeight:1.7, textAlign:'justify' }}>
-              {ev.conclusaoIA || ev.conclusao}
-            </p>
-          )}
-
-          {!ev.conclusaoIA && !ev.conclusao && (
-            <p className="text-sub" style={{ fontStyle:'italic' }}>
-              Clique em "Gerar conclusão com IA" ou adicione o texto manualmente na avaliação.
-            </p>
-          )}
+          <EditableField
+            value={ev.conclusaoIA || ev.conclusao}
+            placeholder="Clique em 'Editar' para adicionar a conclusão, ou use o botão de IA acima."
+            rows={6}
+            onChange={async (texto) => {
+              const updated = { ...ev, conclusaoIA: texto }
+              setEv(updated)
+              await salvarAvaliacao(pid, updated)
+            }}
+          />
         </div>
 
         {/* ASSINATURA */}
