@@ -70,7 +70,7 @@ function LungSVG() {
 }
 
 // ─── Chave Groq — coloque aqui a sua chave do console.groq.com/keys ──────
-const GROQ_API_KEY = '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'
+const GROQ_API_KEY = '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'
 const GROQ_MODEL   = 'llama-3.3-70b-versatile'
 
 async function chamarGroq(prompt, maxTokens = 1000) {
