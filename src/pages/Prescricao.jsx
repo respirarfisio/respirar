@@ -3,12 +3,17 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Dumbbell, BookOpen, Check, Printer } from 'lucide-react'
 import {
-  collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp,
+  collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { getPaciente, salvarPaciente } from '../utils/db'
+import { BIBLIOTECA_PADRAO } from '../utils/bibliotecaExercicios'
 
-const CATEGORIAS = ['Aeróbio', 'Fortalecimento MMSS', 'Fortalecimento MMII', 'Treino Muscular Inspiratório', 'Equilíbrio', 'Alongamento', 'Outro']
+const CATEGORIAS = [
+  'Treino Muscular Inspiratório', 'Exercícios Respiratórios', 'Higiene Brônquica',
+  'Aeróbio', 'Fortalecimento MMII', 'Fortalecimento MMSS',
+  'Equilíbrio', 'Alongamento', 'Neurofuncional', 'Funcional', 'Outro',
+]
 
 export default function Prescricao() {
   const { pid } = useParams()
@@ -34,7 +39,20 @@ export default function Prescricao() {
       ])
       setPaciente(p)
       setPrescricao(p?.prescricao ?? [])
-      setBiblioteca(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+
+      // Primeiro acesso: biblioteca vazia → carrega a biblioteca padrão
+      if (snap.empty) {
+        const batch = writeBatch(db)
+        BIBLIOTECA_PADRAO.forEach(ex => {
+          const ref = doc(collection(db, 'exercicios'))
+          batch.set(ref, { ...ex, criadoEm: serverTimestamp() })
+        })
+        await batch.commit()
+        const novoSnap = await getDocs(collection(db, 'exercicios'))
+        setBiblioteca(novoSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      } else {
+        setBiblioteca(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      }
       setLoading(false)
     })()
   }, [pid])
@@ -59,7 +77,8 @@ export default function Prescricao() {
     if (prescricao.some(p => p.exercicioId === ex.id)) return
     setPrescricao(p => [...p, {
       exercicioId: ex.id, nome: ex.nome, categoria: ex.categoria, descricao: ex.descricao,
-      series: '3', repeticoes: '10', frequencia: '3x/semana', obs: '',
+      series: ex.series || '3', repeticoes: ex.repeticoes || '10',
+      frequencia: ex.frequencia || '3x/semana', obs: ex.obs || '',
     }])
   }
 
