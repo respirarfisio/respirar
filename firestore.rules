@@ -1,9 +1,28 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Só usuários autenticados podem ler e escrever
-    match /{document=**} {
+
+    match /usuarios_autorizados/{email} {
       allow read, write: if request.auth != null;
+    }
+
+    match /exercicios/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Despesas da clínica (global)
+    match /despesas/{id} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /pacientes/{pacienteId} {
+      allow read, write: if request.auth != null;
+
+      match /avaliacoes/{id}  { allow read, write: if request.auth != null; }
+      match /sessoes/{id}     { allow read, write: if request.auth != null; }
+      match /documentos/{id}  { allow read, write: if request.auth != null; }
+      match /pacotes/{id}     { allow read, write: if request.auth != null; }
+      match /pagamentos/{id}  { allow read, write: if request.auth != null; }
     }
   }
 }

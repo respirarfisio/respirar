@@ -1,6 +1,7 @@
 // src/components/Layout.jsx
 import { Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Settings, BarChart3, CalendarDays } from 'lucide-react'
+import { LogOut, Settings, BarChart3, CalendarDays, Menu, X } from 'lucide-react'
+import { useState } from 'react'
 
 function LungIcon() {
   return (
@@ -15,15 +16,40 @@ function LungIcon() {
   )
 }
 
+const btnStyle = {
+  background: 'rgba(255,255,255,.08)',
+  border: '1px solid rgba(255,255,255,.15)',
+  borderRadius: 8,
+  color: '#9FB0C9',
+  padding: '8px 12px',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 13,
+  fontFamily: 'inherit',
+  whiteSpace: 'nowrap',
+}
+
 export default function Layout({ user, role, logout }) {
   const nav = useNavigate()
   const isAdmin = role === 'admin' || role === 'superadmin'
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const navItems = [
+    { label: 'Dashboard', icon: <BarChart3 size={15} />, path: '/dashboard' },
+    { label: 'Financeiro', icon: <DollarSign size={15} />, path: '/dashboard-financeiro' },
+    { label: 'Agenda',    icon: <CalendarDays size={15} />, path: '/agenda' },
+    ...(isAdmin ? [{ label: 'Admin', icon: <Settings size={15} />, path: '/admin' }] : []),
+  ]
 
   return (
     <div>
+      {/* ── Topbar ─────────────────────────────────────────────────── */}
       <div className="topbar no-print">
-        <button onClick={() => nav('/')}
-          style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, padding:0 }}>
+        {/* Logo */}
+        <button onClick={() => { nav('/'); setMenuOpen(false) }}
+          style={{ background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:10, padding:0, flexShrink:0 }}>
           <LungIcon />
           <div>
             <div className="topbar-logo">re<span>spir</span>ar</div>
@@ -31,35 +57,47 @@ export default function Layout({ user, role, logout }) {
           </div>
         </button>
 
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
-          <button onClick={() => nav('/dashboard')} title="Dashboard"
-            style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
-            <BarChart3 size={14} /> Dashboard
-          </button>
-          <button onClick={() => nav('/agenda')} title="Agenda"
-            style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
-            <CalendarDays size={14} /> Agenda
-          </button>
+        {/* Desktop nav — some no mobile */}
+        <div className="topbar-desktop-nav">
+          {navItems.map(item => (
+            <button key={item.path} style={btnStyle} onClick={() => nav(item.path)}>
+              {item.icon} {item.label}
+            </button>
+          ))}
           {user?.photoURL && (
             <img src={user.photoURL} alt={user.displayName}
-              style={{ width:32, height:32, borderRadius:'50%', border:'2px solid rgba(255,255,255,.2)' }} />
+              style={{ width:32, height:32, borderRadius:'50%', border:'2px solid rgba(255,255,255,.2)', flexShrink:0 }} />
           )}
-
-          {/* Botão admin — só aparece para admins */}
-          {isAdmin && (
-            <button onClick={() => nav('/admin')} title="Gerenciar usuários"
-              style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
-              <Settings size={14} /> Admin
-            </button>
-          )}
-
-          <button onClick={logout} title="Sair"
-            style={{ background:'rgba(255,255,255,.08)', border:'1px solid rgba(255,255,255,.15)', borderRadius:8, color:'#9FB0C9', padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontSize:13, fontFamily:'inherit' }}>
+          <button style={btnStyle} onClick={logout} title="Sair">
             <LogOut size={14} /> Sair
           </button>
         </div>
+
+        {/* Mobile — hamburguer */}
+        <button className="topbar-mobile-menu"
+          style={{ ...btnStyle, marginLeft:'auto' }}
+          onClick={() => setMenuOpen(o => !o)}>
+          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
       </div>
 
+      {/* ── Menu mobile dropdown ────────────────────────────────────── */}
+      {menuOpen && (
+        <div className="mobile-menu no-print">
+          {navItems.map(item => (
+            <button key={item.path} className="mobile-menu-item"
+              onClick={() => { nav(item.path); setMenuOpen(false) }}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+          <div style={{ height:1, background:'rgba(255,255,255,.1)', margin:'4px 0' }} />
+          <button className="mobile-menu-item" onClick={() => { logout(); setMenuOpen(false) }}>
+            <LogOut size={15} /> Sair
+          </button>
+        </div>
+      )}
+
+      {/* ── Conteúdo ────────────────────────────────────────────────── */}
       <div className="shell" style={{ paddingTop:22 }}>
         <Outlet context={{ user, role }} />
       </div>

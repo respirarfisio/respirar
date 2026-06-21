@@ -59,6 +59,55 @@ p  { color: var(--ink); }
 .topbar-logo span { color: var(--teal); }
 .topbar-tagline { color: #9FB0C9; font-size: 0.7rem; letter-spacing: 2px; margin-top: 3px; }
 
+/* Desktop nav visível, hamburguer escondido */
+.topbar-desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: nowrap;
+}
+.topbar-mobile-menu { display: none !important; }
+
+/* Menu mobile dropdown */
+.mobile-menu {
+  background: var(--navy);
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 52px;
+  z-index: 99;
+}
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9FB0C9;
+  background: none;
+  border: none;
+  padding: 10px 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  text-align: left;
+}
+.mobile-menu-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+
+/* Mobile — troca para hamburguer */
+@media (max-width: 680px) {
+  .topbar-desktop-nav { display: none !important; }
+  .topbar-mobile-menu { display: flex !important; }
+  .shell { padding-left: 12px; padding-right: 12px; }
+  .tbl-mini { font-size: 11px; }
+  .cell-mini { width: 38px; }
+  .rep-id { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr !important; }
+}
+
 /* ── Cartão ────────────────────────────────────────────────────────────── */
 .card {
   background: var(--card);
@@ -211,11 +260,17 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
 .rep-id span { color: var(--sub); margin-right: 6px; }
 .rep-id b { color: var(--ink); }
 
-.rep-block { margin-bottom: 18px; }
+.rep-block {
+  margin-bottom: 18px;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
 .rep-h {
   font-weight: 750; color: var(--navy); font-size: 15px;
   border-left: 3px solid var(--teal);
   padding-left: 9px; margin-bottom: 10px;
+  page-break-after: avoid;
+  break-after: avoid;
 }
 
 .rep-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
@@ -240,10 +295,82 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
 
 /* ── Impressão ─────────────────────────────────────────────────────────── */
 @media print {
-  .no-print { display: none !important; }
-  body { background: #fff; }
-  .report { border: none; border-radius: 0; padding: 0; }
-  .no-break { break-inside: avoid; }
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Esconde e COLAPSA (sem ocupar espaço) tudo que não é relatório */
+  .no-print,
+  .topbar,
+  .mobile-menu,
+  .shell > *:not(.report) {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove padding do shell na impressão */
+  body, html, #root {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .shell {
+    padding: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Apenas o relatório aparece */
+  .report {
+    display: block !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Quebras de página inteligentes */
+  .rep-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 14px !important;
+  }
+
+  .no-break,
+  table,
+  ul,
+  .charts-grid,
+  img {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .rep-h,
+  h1, h2, h3 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  img { max-width: 100% !important; }
+
+  /* Botões e controles nunca aparecem */
+  button { display: none !important; }
 }
 
 /* ── Utilitários ───────────────────────────────────────────────────────── */

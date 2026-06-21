@@ -1,7 +1,7 @@
 // src/pages/Paciente.jsx
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, FileText, Calendar, Pencil, Trash2, TrendingUp, FileSignature, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Calendar, Pencil, Trash2, TrendingUp, FileSignature, Dumbbell, Banknote } from 'lucide-react'
 import Sessoes from '../components/Sessoes'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Legend,
@@ -183,6 +183,9 @@ export default function Paciente() {
       <div className="flex gap-10" style={{ flexWrap: 'wrap', marginBottom: 14 }}>
         <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/termo`)}>
           <FileSignature size={15} /> Termo de consentimento
+        </button>
+        <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/financeiro`)}>
+          <Banknote size={15} /> Financeiro
         </button>
         <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/prescricao`)}>
           <Dumbbell size={15} /> Prescrição de exercícios

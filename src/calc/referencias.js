@@ -123,3 +123,67 @@ export function sppbTotal(pontos) {
   if (total <= 9)  return { total, class: 'Incapacidade leve' }
   return { total, class: 'Normal' }
 }
+
+// ── Teste de Caminhada 6 min (Iwama et al.) ───────────────────────────────
+// Marton (67a, M): 622.461 - 1.846×67 + 61.503×1 = 559.7 ≈ 560 m ✓
+export function predTC6(idade, sexo) {
+  if (!idade) return null
+  return r1(622.461 - 1.846 * idade + 61.503 * (sexo === 'M' ? 1 : 0))
+}
+
+// VO2pico via TC6 (ACSM 2018) — mesma equação do degrau com distância em metros
+export function vo2TC6(dist, idade, peso, altura) {
+  if (!dist || !idade || !peso || !altura) return null
+  return r1(0.02 * dist - 0.191 * idade - 0.07 * peso + 0.09 * altura + 2.45)
+}
+
+// METs a partir do VO2pico
+export function vo2ToMETs(vo2) {
+  if (!vo2) return null
+  return r1(vo2 / 3.5)
+}
+
+// Classificação da aptidão cardiorrespiratória pelo TC6 (Dourado et al., 2021)
+export function classTC6Pct(pct) {
+  if (pct == null) return null
+  if (pct >= 100) return 'Muito boa'
+  if (pct >= 90)  return 'Boa'
+  if (pct >= 80)  return 'Regular'
+  if (pct >= 70)  return 'Baixa'
+  return 'Muito baixa'
+}
+
+// ── Espirometria (Pereira 2007 — valores preditos brasileiros) ────────────
+// Para uso em campo manual — a maioria dos espirômetros já exibe o predito
+export function predCVF(idade, altura, sexo) {
+  if (!idade || !altura) return null
+  return sexo === 'M'
+    ? r1(0.0576 * altura - 0.026 * idade - 4.34)
+    : r1(0.0443 * altura - 0.026 * idade - 2.89)
+}
+export function predVEF1(idade, altura, sexo) {
+  if (!idade || !altura) return null
+  return sexo === 'M'
+    ? r1(0.0443 * altura - 0.025 * idade - 2.17)
+    : r1(0.0350 * altura - 0.022 * idade - 1.21)
+}
+
+// ── Dinamometria bilateral (Meldrum et al., 2007) ─────────────────────────
+// Marton (67a, M): Quad = 39.45 kgf ✓   Bíceps = 26.41 kgf ✓
+export function predQuadriceps(idade, sexo) {
+  if (!idade) return null
+  return sexo === 'M'
+    ? r1(67.7 - 0.42 * idade)
+    : r1(50.2 - 0.35 * idade)
+}
+export function predBiceps(idade, sexo) {
+  if (!idade) return null
+  return sexo === 'M'
+    ? r1(38.4 - 0.18 * idade)
+    : r1(24.8 - 0.12 * idade)
+}
+// % assimetria entre lados
+export function assimetria(d, e) {
+  if (!d || !e) return null
+  return r1(Math.abs(d - e) / Math.max(d, e) * 100)
+}
