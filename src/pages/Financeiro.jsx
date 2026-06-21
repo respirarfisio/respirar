@@ -15,6 +15,7 @@ import {
   fmtBRL, FORMAS_PAGAMENTO, STATUS_PACOTE, calcSaldo, gerarPixCopia,
 } from '../utils/financeiro'
 import { fmtDate } from '../utils/avaliacao'
+import { ASSINATURA_RAVEL } from '../utils/assets'
 
 const PIX_CHAVE  = 'COLOQUE_SUA_CHAVE_PIX_AQUI'  // CPF, CNPJ, e-mail ou telefone
 const PIX_NOME   = 'Respirar Fisioterapeutas'
@@ -119,6 +120,8 @@ function Recibo({ paciente, pagamento, pacote, onFechar }) {
 
         <div style={{ marginTop: 40, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
           <div style={{ textAlign: 'center', minWidth: 200 }}>
+            <img src={ASSINATURA_RAVEL} alt="Assinatura"
+              style={{ height: 34, margin: '0 auto 2px', display: 'block' }} />
             <div style={{ borderTop: '1px solid var(--ink)', paddingTop: 8, fontSize: 13 }}>
               Dr. Ravel Marinho — CREFITO 1 nº 216.212 F
             </div>

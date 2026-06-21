@@ -9,11 +9,13 @@ import {
 import { getPaciente, getAvaliacao, listarAvaliacoes, salvarAvaliacao } from '../utils/db'
 import {
   predPImax, predPEmax, predGrip, predStepReps,
-  predSTS5, predSTS1, calcIMC, classIMC, fcMaxTanaka,
-  predTC6, predQuadriceps, predBiceps, vo2TC6, vo2ToMETs, classTC6Pct, assimetria,
+  predSTS5, predSTS1, predSindex, calcIMC, classIMC, fcMaxTanaka,
+  predTC6, predQuadriceps, predBiceps, predCVF, predVEF1,
+  vo2TC6, vo2ToMETs, classTC6Pct, assimetria,
   num, r1, pct,
 } from '../calc/referencias'
 import { fmtDate, borgLabel, SERIE_TC6 } from '../utils/avaliacao'
+import { ASSINATURA_RAVEL } from '../utils/assets'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Tag({ tone='neutral', children }) {
@@ -177,23 +179,44 @@ Escreva apenas o texto da conclusão, em 3 parágrafos, sem títulos ou marcador
 
 // ─── Geração de comparativo via Groq ─────────────────────────────────────
 async function gerarComparativoIA(paciente, cur, prev, calcCur, calcPrev) {
+  // Monta dinamicamente só as métricas presentes nas duas avaliações
+  const metricas = [
+    ['Teste do degrau', calcCur.reps, calcCur.repsPct, calcPrev.reps, calcPrev.repsPct, 'rep'],
+    ['TC6 (distância)', calcCur.tc6d, calcCur.tc6Pct, calcPrev.tc6d, calcPrev.tc6Pct, 'm'],
+    ['PImáx', calcCur.pim, calcCur.pimPct, calcPrev.pim, calcPrev.pimPct, 'cmH₂O'],
+    ['PEmáx', calcCur.pem, calcCur.pemPct, calcPrev.pem, calcPrev.pemPct, 'cmH₂O'],
+    ['S-Index', calcCur.sind, calcCur.sindPct, calcPrev.sind, calcPrev.sindPct, 'cmH₂O'],
+    ['CVF (espirometria)', calcCur.cvf, calcCur.cvfPct, calcPrev.cvf, calcPrev.cvfPct, 'L'],
+    ['VEF₁ (espirometria)', calcCur.vef1, calcCur.vef1Pct, calcPrev.vef1, calcPrev.vef1Pct, 'L'],
+    ['Preensão palmar', calcCur.grip, calcCur.gripPct, calcPrev.grip, calcPrev.gripPct, 'kgf'],
+    ['Quadríceps (dinamometria)', calcCur.quad, calcCur.quadPct, calcPrev.quad, calcPrev.quadPct, 'kgf'],
+    ['Bíceps (dinamometria)', calcCur.bic, calcCur.bicPct, calcPrev.bic, calcPrev.bicPct, 'kgf'],
+    ['TSL 5 repetições', calcCur.sts5, null, calcPrev.sts5, null, 's (menor é melhor)'],
+    ['TSL 1 min', calcCur.sts1, calcCur.sts1Pct, calcPrev.sts1, calcPrev.sts1Pct, 'rep'],
+  ].filter(([, c, , p]) => c != null && p != null)
+
+  if (!metricas.length) return 'Não há variáveis comparáveis entre as duas avaliações.'
+
+  const linhasAnterior = metricas.map(([nome, , , p, pPct, unid]) =>
+    `- ${nome}: ${p} ${unid}${pPct != null ? ` (${pPct}% do predito)` : ''}`
+  ).join('\n')
+  const linhasAtual = metricas.map(([nome, c, cPct, , , unid]) =>
+    `- ${nome}: ${c} ${unid}${cPct != null ? ` (${cPct}% do predito)` : ''}`
+  ).join('\n')
+
   const prompt = `Compare as duas avaliações fisioterapêuticas do paciente ${paciente.nome} (${paciente.idade} anos) e redija um parágrafo clínico sobre a evolução entre as datas.
 
 Avaliação anterior — ${fmtDate(prev.data)}:
-- Teste do degrau: ${calcPrev.reps ?? '—'} rep (${calcPrev.repsPct ?? '—'}% do predito)
-- PImáx: ${calcPrev.pim ?? '—'} cmH₂O (${calcPrev.pimPct ?? '—'}%)
-- Preensão palmar: ${calcPrev.grip ?? '—'} kgf (${calcPrev.gripPct ?? '—'}%)
-- TSL 5 rep: ${calcPrev.sts5 ?? '—'} s
+${linhasAnterior}
 
 Avaliação atual — ${fmtDate(cur.data)}:
-- Teste do degrau: ${calcCur.reps ?? '—'} rep (${calcCur.repsPct ?? '—'}% do predito)
-- PImáx: ${calcCur.pim ?? '—'} cmH₂O (${calcCur.pimPct ?? '—'}%)
-- Preensão palmar: ${calcCur.grip ?? '—'} kgf (${calcCur.gripPct ?? '—'}%)
-- TSL 5 rep: ${calcCur.sts5 ?? '—'} s
+${linhasAtual}
 
-Escreva apenas 1 parágrafo interpretando clinicamente a evolução, destacando melhoras, pioras ou manutenção dos resultados, e o que isso representa para o prognóstico e conduta do paciente. Sem título.`
+Escreva um parágrafo (ou dois, se houver muitas variáveis) interpretando clinicamente a evolução
+de TODAS as variáveis listadas acima — não apenas algumas — destacando melhoras, pioras ou
+manutenção de cada uma, e o que isso representa para o prognóstico e conduta do paciente. Sem título.`
 
-  return chamarGroq(prompt, 600)
+  return chamarGroq(prompt, 800)
 }
 
 function calcEv(ev, paciente) {
@@ -203,25 +226,45 @@ function calcEv(ev, paciente) {
 
   const pimP  = num(ev.pimax?.predito)  ?? r1(predPImax(idade, sexo))
   const pemP  = num(ev.pemax?.predito)  ?? r1(predPEmax(idade, sexo))
+  const sindP = num(ev.sindex?.predito) ?? r1(predSindex(idade, sexo))
   const grP   = num(ev.grip?.predito)   ?? r1(predGrip(idade, peso, sexo))
   const repsP = num(ev.degrau?.preditoReps) ?? r1(predStepReps(idade, sexo))
+  const tc6P  = num(ev.tc6?.preditoDist) ?? r1(predTC6(idade, sexo))
   const sts5P = num(ev.sts5?.predito)   ?? predSTS5(idade)
   const sts1P = num(ev.sts1?.predito)   ?? predSTS1(idade, sexo)
+  const cvfP  = num(ev.espiro?.preBD?.cvfPred)  ?? r1(predCVF(idade, altura, sexo))
+  const vef1P = num(ev.espiro?.preBD?.vef1Pred) ?? r1(predVEF1(idade, altura, sexo))
+  const quadP = r1(predQuadriceps(idade, sexo))
+  const bicP  = r1(predBiceps(idade, sexo))
 
   const pim  = num(ev.pimax?.obtido)
   const pem  = num(ev.pemax?.obtido)
+  const sind = num(ev.sindex?.obtido)
   const grip = num(ev.grip?.obtido)
   const reps = num(ev.degrau?.reps)
+  const tc6d = num(ev.tc6?.distancia)
   const sts5 = num(ev.sts5?.tempo)
   const sts1 = num(ev.sts1?.reps)
+  const cvf  = num(ev.espiro?.preBD?.cvf)
+  const vef1 = num(ev.espiro?.preBD?.vef1)
+  const qD = num(ev.dinamo?.quadD), qE = num(ev.dinamo?.quadE)
+  const bD = num(ev.dinamo?.bicD),  bE = num(ev.dinamo?.bicE)
+  const quad = (qD != null && qE != null) ? r1((qD + qE) / 2) : (qD ?? qE ?? null)
+  const bic  = (bD != null && bE != null) ? r1((bD + bE) / 2) : (bD ?? bE ?? null)
 
   return {
     pim, pimP, pimPct: pct(pim, pimP),
     pem, pemP, pemPct: pct(pem, pemP),
+    sind, sindP, sindPct: pct(sind, sindP),
     grip, grP, gripPct: pct(grip, grP),
     reps, repsP, repsPct: pct(reps, repsP),
+    tc6d, tc6P, tc6Pct: pct(tc6d, tc6P),
     sts5, sts5P, sts5Risk: sts5 == null ? null : sts5 <= sts5P ? 'Diminuído' : 'Aumentado',
     sts1, sts1P, sts1Pct: pct(sts1, sts1P),
+    cvf, cvfP, cvfPct: pct(cvf, cvfP),
+    vef1, vef1P, vef1Pct: pct(vef1, vef1P),
+    quad, quadP, quadPct: pct(quad, quadP),
+    bic, bicP, bicPct: pct(bic, bicP),
   }
 }
 
@@ -707,9 +750,17 @@ _Respirar Fisioterapeutas_
               const cp = calcEv(prev, paciente)
               const rows = [
                 ['Degrau (rep)', calc.reps, cp.reps, 'high'],
+                ['TC6 (m)', calc.tc6d, cp.tc6d, 'high'],
                 ['PImáx (cmH₂O)', pim, cp.pim, 'high'],
+                ['PEmáx (cmH₂O)', pem, cp.pem, 'high'],
+                ['S-Index (cmH₂O)', calc.sind, cp.sind, 'high'],
+                ['CVF (L)', calc.cvf, cp.cvf, 'high'],
+                ['VEF₁ (L)', calc.vef1, cp.vef1, 'high'],
                 ['Preensão (kgf)', grip, cp.grip, 'high'],
+                ['Quadríceps (kgf)', calc.quad, cp.quad, 'high'],
+                ['Bíceps (kgf)', calc.bic, cp.bic, 'high'],
                 ['TSL 5 rep (s)', sts5, cp.sts5, 'low'],
+                ['TSL 1 min (rep)', sts1, cp.sts1, 'high'],
               ].filter(r => r[1] != null && r[2] != null)
               if (!rows.length) return <p className="text-sub">Sem variáveis comparáveis.</p>
               return (
@@ -974,6 +1025,10 @@ _Respirar Fisioterapeutas_
 
         {/* ASSINATURA */}
         <div className="rep-sign">
+          {ev.profissional?.includes('Ravel') && (
+            <img src={ASSINATURA_RAVEL} alt="Assinatura"
+              style={{ height:38, marginBottom:4, display:'block' }} />
+          )}
           <div style={{ fontWeight:600, color:'var(--navy)', fontSize:13 }}>{ev.profissional}</div>
           <div className="text-sub" style={{ marginTop:4 }}>
             Av. Hermes da Fonseca, 390 — Lj 05 · Petrópolis, Natal/RN · (84) 9 9168-8285 · @respirarfisioterapeutas

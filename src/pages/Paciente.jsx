@@ -11,7 +11,8 @@ import {
   listarAvaliacoes, excluirAvaliacao,
 } from '../utils/db'
 import {
-  predPImax, predGrip, pct, r1, num,
+  predPImax, predPEmax, predSindex, predGrip, predTC6, predSTS5, predSTS1, predStepReps,
+  predQuadriceps, predBiceps, predCVF, predVEF1, pct, r1, num,
 } from '../calc/referencias'
 import { fmtDate } from '../utils/avaliacao'
 
@@ -70,20 +71,71 @@ function PacienteForm({ paciente, onSaved, onCancel }) {
 }
 
 // ── Gráfico de evolução ────────────────────────────────────────────────────
+// Paleta de cores distintas para até 12 métricas simultâneas
+const CORES_METRICAS = [
+  '#15B8C4', '#16233F', '#1F9D6B', '#D98A21', '#D14B4B', '#7C5CD6',
+  '#C2548A', '#3D8FB0', '#A0742E', '#5B7B3A', '#B0529C', '#4A6FA5',
+]
+
+// Definição de cada métrica comparável: como extrair obtido/predito de uma avaliação
+const METRICAS_CONFIG = [
+  { key: 'Degrau %', get: (ev, p) => [num(ev.degrau?.reps), num(ev.degrau?.preditoReps) ?? r1(predStepReps(p.idade, p.sexo))] },
+  { key: 'TC6 %', get: (ev, p) => [num(ev.tc6?.distancia), num(ev.tc6?.preditoDist) ?? r1(predTC6(p.idade, p.sexo))] },
+  { key: 'PImáx %', get: (ev, p) => [num(ev.pimax?.obtido), num(ev.pimax?.predito) ?? r1(predPImax(p.idade, p.sexo))] },
+  { key: 'PEmáx %', get: (ev, p) => [num(ev.pemax?.obtido), num(ev.pemax?.predito) ?? r1(predPEmax(p.idade, p.sexo))] },
+  { key: 'S-Index %', get: (ev, p) => [num(ev.sindex?.obtido), num(ev.sindex?.predito) ?? r1(predSindex(p.idade, p.sexo))] },
+  { key: 'CVF %', get: (ev, p) => [num(ev.espiro?.preBD?.cvf), num(ev.espiro?.preBD?.cvfPred) ?? r1(predCVF(p.idade, num(p.altura), p.sexo))] },
+  { key: 'VEF₁ %', get: (ev, p) => [num(ev.espiro?.preBD?.vef1), num(ev.espiro?.preBD?.vef1Pred) ?? r1(predVEF1(p.idade, num(p.altura), p.sexo))] },
+  { key: 'Preensão %', get: (ev, p) => [num(ev.grip?.obtido), num(ev.grip?.predito) ?? r1(predGrip(p.idade, num(p.peso), p.sexo))] },
+  { key: 'Quadríceps %', get: (ev, p) => {
+      const qD = num(ev.dinamo?.quadD), qE = num(ev.dinamo?.quadE)
+      const obt = (qD != null && qE != null) ? (qD + qE) / 2 : (qD ?? qE)
+      return [obt, r1(predQuadriceps(p.idade, p.sexo))]
+    } },
+  { key: 'Bíceps %', get: (ev, p) => {
+      const bD = num(ev.dinamo?.bicD), bE = num(ev.dinamo?.bicE)
+      const obt = (bD != null && bE != null) ? (bD + bE) / 2 : (bD ?? bE)
+      return [obt, r1(predBiceps(p.idade, p.sexo))]
+    } },
+  // TSL 5 rep: menor é melhor — inverte a razão (predito/obtido) para manter "100 = normal, mais = melhor"
+  { key: 'TSL 5 rep %', get: (ev, p) => {
+      const obt = num(ev.sts5?.tempo)
+      const pred = num(ev.sts5?.predito) ?? predSTS5(p.idade)
+      return (obt && pred) ? [pred, obt] : [null, null]
+    } },
+  { key: 'TSL 1 min %', get: (ev, p) => [num(ev.sts1?.reps), num(ev.sts1?.predito) ?? predSTS1(p.idade, p.sexo)] },
+]
+
 function Evolucao({ avaliacoes, paciente }) {
-  const series = [...avaliacoes]
-    .sort((a, b) => a.data.localeCompare(b.data))
-    .map(ev => {
-      const pim = num(ev.pimax?.obtido)
-      const pimP = num(ev.pimax?.predito) ?? r1(predPImax(paciente.idade, paciente.sexo))
-      const gr = num(ev.grip?.obtido)
-      const grP = num(ev.grip?.predito) ?? r1(predGrip(paciente.idade, paciente.peso, paciente.sexo))
-      return {
-        data: fmtDate(ev.data).slice(0, 5),
-        'PImáx %': pim && pimP ? pct(pim, pimP) : null,
-        'Preensão %': gr && grP ? pct(gr, grP) : null,
-      }
+  const ordenadas = [...avaliacoes].sort((a, b) => a.data.localeCompare(b.data))
+
+  // Calcula a série de cada métrica
+  const series = ordenadas.map(ev => {
+    const ponto = { data: fmtDate(ev.data).slice(0, 5) }
+    METRICAS_CONFIG.forEach(({ key, get }) => {
+      const [obt, pred] = get(ev, paciente)
+      ponto[key] = (obt != null && pred) ? pct(obt, pred) : null
     })
+    return ponto
+  })
+
+  // Só oferece métricas que têm pelo menos 2 pontos de dado (faz sentido comparar)
+  const metricasDisponiveis = METRICAS_CONFIG.filter(({ key }) =>
+    series.filter(p => p[key] != null).length >= 2
+  )
+
+  // Por padrão, mostra as 3 primeiras disponíveis para não poluir o gráfico
+  const [visiveis, setVisiveis] = useState(() => {
+    const init = {}
+    metricasDisponiveis.forEach(({ key }, i) => { init[key] = i < 3 })
+    return init
+  })
+
+  function toggle(key) {
+    setVisiveis(v => ({ ...v, [key]: !v[key] }))
+  }
+
+  if (!metricasDisponiveis.length) return null
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
@@ -91,19 +143,49 @@ function Evolucao({ avaliacoes, paciente }) {
         <div className="section-icon"><TrendingUp size={16} /></div>
         <h2>Evolução entre avaliações</h2>
       </div>
-      <ResponsiveContainer width="100%" height={200}>
+
+      {/* Seletor de métricas */}
+      <div className="flex gap-8" style={{ flexWrap: 'wrap', marginBottom: 14 }}>
+        {metricasDisponiveis.map(({ key }, i) => {
+          const ativo = !!visiveis[key]
+          const cor = CORES_METRICAS[i % CORES_METRICAS.length]
+          return (
+            <button key={key} onClick={() => toggle(key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 650,
+                border: `1.5px solid ${ativo ? cor : 'var(--border)'}`,
+                background: ativo ? `${cor}18` : '#fff',
+                color: ativo ? cor : 'var(--sub)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: ativo ? cor : 'var(--border)' }} />
+              {key}
+            </button>
+          )
+        })}
+      </div>
+
+      <ResponsiveContainer width="100%" height={240}>
         <LineChart data={series} margin={{ top: 6, right: 10, left: -12, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="data" tick={{ fontSize: 11, fill: 'var(--sub)' }} />
           <YAxis tick={{ fontSize: 11, fill: 'var(--sub)' }} />
           <Tooltip />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Legend wrapperStyle={{ fontSize: 11.5 }} />
           <ReferenceLine y={100} stroke="var(--good)" strokeDasharray="4 4" />
-          <Line type="monotone" dataKey="PImáx %" stroke="var(--teal)" strokeWidth={2.4} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="Preensão %" stroke="var(--navy)" strokeWidth={2.4} dot={{ r: 3 }} />
+          {metricasDisponiveis.map(({ key }, i) => (
+            visiveis[key] && (
+              <Line key={key} type="monotone" dataKey={key}
+                stroke={CORES_METRICAS[i % CORES_METRICAS.length]}
+                strokeWidth={2.4} dot={{ r: 3 }} connectNulls />
+            )
+          ))}
         </LineChart>
       </ResponsiveContainer>
-      <p className="text-sub" style={{ marginTop: 4 }}>Linha tracejada = 100 % do predito (normalidade).</p>
+      <p className="text-sub" style={{ marginTop: 4 }}>
+        Linha tracejada = 100% do predito (normalidade). Clique nos botões acima para mostrar ou ocultar cada teste.
+      </p>
     </div>
   )
 }
