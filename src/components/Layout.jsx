@@ -1,6 +1,6 @@
 // src/components/Layout.jsx
 import { Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Settings, BarChart3, CalendarDays, Menu, X } from 'lucide-react'
+import { LogOut, Settings, BarChart3, CalendarDays, Menu, X, DollarSign } from 'lucide-react'
 import { useState } from 'react'
 
 function LungIcon() {
