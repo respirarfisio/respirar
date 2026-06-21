@@ -1,7 +1,19 @@
 // src/components/Layout.jsx
 import { Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, Settings, BarChart3, CalendarDays, Menu, X, DollarSign } from 'lucide-react'
-import { useState } from 'react'
+import { LogOut, Settings, BarChart3, CalendarDays, Menu, X, DollarSign, WifiOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine)
+  useEffect(() => {
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  return online
+}
 
 function LungIcon() {
   return (
@@ -35,6 +47,7 @@ export default function Layout({ user, role, logout }) {
   const nav = useNavigate()
   const isAdmin = role === 'admin' || role === 'superadmin'
   const [menuOpen, setMenuOpen] = useState(false)
+  const online = useOnlineStatus()
 
   const navItems = [
     { label: 'Dashboard', icon: <BarChart3 size={15} />, path: '/dashboard' },
@@ -94,6 +107,17 @@ export default function Layout({ user, role, logout }) {
           <button className="mobile-menu-item" onClick={() => { logout(); setMenuOpen(false) }}>
             <LogOut size={15} /> Sair
           </button>
+        </div>
+      )}
+
+      {/* ── Indicador offline ─────────────────────────────────────────── */}
+      {!online && (
+        <div className="no-print" style={{
+          background: 'var(--warn)', color: '#fff', textAlign: 'center',
+          padding: '7px 12px', fontSize: 13, fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <WifiOff size={15} /> Sem conexão — as alterações serão salvas e sincronizadas quando a internet voltar.
         </div>
       )}
 

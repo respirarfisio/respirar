@@ -13,6 +13,7 @@ import {
   num, r1,
 } from '../calc/referencias'
 import { avaliacaoVazia, SERIE_DEGRAU, SERIE_TC6, TESTES_DISPONIVEIS, fmtDate } from '../utils/avaliacao'
+import { SixMinuteTest, Stopwatch, RepCounterTimer, ImportarPolarFC } from '../components/TestTimers'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Field({ label, hint, children }) {
@@ -136,6 +137,23 @@ export default function Avaliacao() {
       next[grupo].serie[i][key] = val
       return next
     })
+  }
+
+  // Aplica valores de FC (do cronômetro de recuperação ou da importação Polar)
+  // diretamente na tabela de série de um grupo (degrau ou tc6)
+  function aplicarFC(grupo, indice, valor) {
+    if (valor == null) return
+    setEv(cur => {
+      const next = structuredClone(cur)
+      next[grupo].serie[indice].fc = String(valor)
+      return next
+    })
+  }
+
+  function aplicarImportacaoPolar(grupo, preview) {
+    preview.minutos.forEach((v, i) => { if (v != null) aplicarFC(grupo, i, v) })
+    if (preview.rec1 != null) aplicarFC(grupo, 6, preview.rec1)
+    if (preview.rec3 != null) aplicarFC(grupo, 7, preview.rec3)
   }
 
   function toggleTeste(id) {
@@ -268,6 +286,10 @@ export default function Avaliacao() {
               </label>
             ))}
           </div>
+
+          <SixMinuteTest />
+          <ImportarPolarFC onAplicar={(preview) => aplicarImportacaoPolar('degrau', preview)} />
+
           <div className="lbl" style={{ margin:'16px 0 8px' }}>Série por minuto</div>
           <div style={{ overflowX:'auto' }}>
             <table className="tbl-mini">
@@ -315,6 +337,10 @@ export default function Avaliacao() {
             <Field label="PAS final"><input className="inp" type="number" value={ev.tc6.pasFim} onChange={e=>set('tc6.pasFim',e.target.value)}/></Field>
             <Field label="Nº de paradas"><input className="inp" type="number" value={ev.tc6.nParadas} onChange={e=>set('tc6.nParadas',e.target.value)}/></Field>
           </div>
+
+          <SixMinuteTest />
+          <ImportarPolarFC onAplicar={(preview) => aplicarImportacaoPolar('tc6', preview)} />
+
           <div className="lbl" style={{ margin:'16px 0 8px' }}>Série por minuto</div>
           <div style={{ overflowX:'auto' }}>
             <table className="tbl-mini">
@@ -494,6 +520,7 @@ export default function Avaliacao() {
           {ativo('sts5') && (
             <>
               <h3 style={{ margin:'16px 0 10px' }}>TSL 5 repetições</h3>
+              <Stopwatch onUseValue={(v) => set('sts5.tempo', String(v))} />
               <Field label="Tempo (s)" hint={`predito: < ${pSts5??'—'} s`}>
                 <input className="inp" type="number" value={ev.sts5.tempo} onChange={e=>set('sts5.tempo',e.target.value)}/>
               </Field>
@@ -502,6 +529,7 @@ export default function Avaliacao() {
           {ativo('sts1') && (
             <>
               <h3 style={{ margin:'16px 0 10px' }}>TSL 1 min</h3>
+              <RepCounterTimer onUseValue={(v) => set('sts1.reps', String(v))} />
               <Field label="Repetições" hint={`predito: ${pSts1??'—'} rep`}>
                 <input className="inp" type="number" value={ev.sts1.reps} onChange={e=>set('sts1.reps',e.target.value)}/>
               </Field>

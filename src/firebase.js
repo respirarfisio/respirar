@@ -4,7 +4,7 @@
 // Console → Configurações do projeto → Seus apps → SDK
 // ─────────────────────────────────────────────────────────────
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -21,3 +21,16 @@ const app = initializeApp(firebaseConfig)
 export const db       = getFirestore(app)
 export const auth     = getAuth(app)
 export const provider = new GoogleAuthProvider()
+
+// ── Persistência offline ────────────────────────────────────────────────
+// Permite ler dados em cache e enfileirar gravações quando sem internet.
+// Tudo é sincronizado automaticamente quando a conexão volta.
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Mais de uma aba do app aberta — a persistência só funciona em uma aba por vez.
+    console.warn('Persistência offline ativa em outra aba.')
+  } else if (err.code === 'unimplemented') {
+    // Navegador sem suporte a IndexedDB (raro)
+    console.warn('Este navegador não suporta persistência offline.')
+  }
+})

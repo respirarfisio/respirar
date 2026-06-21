@@ -49,3 +49,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>,
 )
+
+// ── Registro do Service Worker (PWA / offline) ───────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/respirar/sw.js').catch(() => {})
+  })
+}
