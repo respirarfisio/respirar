@@ -3,23 +3,49 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Printer, Pencil, Sparkles, Share2, Check, X } from 'lucide-react'
 import {
-  LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from 'recharts'
 import { getPaciente, getAvaliacao, listarAvaliacoes, salvarAvaliacao } from '../utils/db'
 import {
-  predPImax, predPEmax, predGrip, predStepReps,
-  predSTS5, predSTS1, predSindex, calcIMC, classIMC, fcMaxTanaka,
-  predTC6, predQuadriceps, predBiceps, predCVF, predVEF1,
-  vo2TC6, vo2ToMETs, classTC6Pct, assimetria, sppbTotal,
-  num, r1, pct,
+  predPImax,
+  predPEmax,
+  predGrip,
+  predStepReps,
+  predSTS5,
+  predSTS1,
+  predSindex,
+  calcIMC,
+  classIMC,
+  fcMaxTanaka,
+  predTC6,
+  predQuadriceps,
+  predBiceps,
+  predCVF,
+  predVEF1,
+  vo2TC6,
+  vo2ToMETs,
+  classTC6Pct,
+  assimetria,
+  sppbTotal,
+  num,
+  r1,
+  pct,
 } from '../calc/referencias'
 import { fmtDate, borgLabel, SERIE_TC6 } from '../utils/avaliacao'
 import { ASSINATURA_RAVEL } from '../utils/assets'
 import { CBDF_CODIGOS } from '../utils/cbdf'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
-function Tag({ tone='neutral', children }) {
+function Tag({ tone = 'neutral', children }) {
   return <span className={`tag tag-${tone}`}>{children}</span>
 }
 
@@ -29,25 +55,39 @@ function RepH({ children }) {
 
 function RepTable({ rows }) {
   return (
-    <table className="rep-table">
-      <thead><tr><th>Variável</th><th>Obtido</th><th>Predito</th><th>% / Classificação</th></tr></thead>
-      <tbody>
-        {rows.map(([name, obt, pred, pctVal], i) => {
-          const tone = pctVal == null ? 'neutral' : pctVal >= 80 ? 'good' : 'bad'
-          return (
-            <tr key={i}>
-              <td style={{ fontWeight:600 }}>{name}</td>
-              <td>{obt ?? '—'}</td>
-              <td>{pred != null ? r1(pred) : '—'}</td>
-              <td>{pctVal != null
-                ? <Tag tone={tone}>{pctVal}% · {pctVal >= 80 ? 'Normal' : 'Reduzida'}</Tag>
-                : '—'}
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <div className="rep-table-wrap">
+      <table className="rep-table">
+        <thead>
+          <tr>
+            <th>Variável</th>
+            <th>Obtido</th>
+            <th>Predito</th>
+            <th>% / Classificação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([name, obt, pred, pctVal], i) => {
+            const tone = pctVal == null ? 'neutral' : pctVal >= 80 ? 'good' : 'bad'
+            return (
+              <tr key={i}>
+                <td style={{ fontWeight: 600 }}>{name}</td>
+                <td>{obt ?? '—'}</td>
+                <td>{pred != null ? r1(pred) : '—'}</td>
+                <td>
+                  {pctVal != null ? (
+                    <Tag tone={tone}>
+                      {pctVal}% · {pctVal >= 80 ? 'Normal' : 'Reduzida'}
+                    </Tag>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -55,11 +95,12 @@ function ChartCard({ title, children }) {
   return (
     <div className="chart-card">
       <div className="chart-card-title">{title}</div>
-      <ResponsiveContainer width="100%" height={150}>{children}</ResponsiveContainer>
+      <ResponsiveContainer width="100%" height={150}>
+        {children}
+      </ResponsiveContainer>
     </div>
   )
 }
-
 
 // ── Campo editável inline no relatório ───────────────────────────────────
 function EditableField({ value, onChange, rows = 4, placeholder }) {
@@ -67,12 +108,20 @@ function EditableField({ value, onChange, rows = 4, placeholder }) {
   const [draft, setDraft] = useState(value)
   if (!editing) {
     return (
-      <div style={{ position: "relative" }}>
-        {value
-          ? <p style={{ lineHeight: 1.7, textAlign: "justify" }}>{value}</p>
-          : <p style={{ color: "var(--sub)", fontStyle: "italic" }}>{placeholder}</p>}
-        <button className="no-print btn-ghost" onClick={() => { setDraft(value); setEditing(true) }}
-          style={{ position: "absolute", top: 0, right: 0, padding: "4px 8px", fontSize: 12 }}>
+      <div style={{ position: 'relative' }}>
+        {value ? (
+          <p style={{ lineHeight: 1.7, textAlign: 'justify' }}>{value}</p>
+        ) : (
+          <p style={{ color: 'var(--sub)', fontStyle: 'italic' }}>{placeholder}</p>
+        )}
+        <button
+          className="no-print btn-ghost"
+          onClick={() => {
+            setDraft(value)
+            setEditing(true)
+          }}
+          style={{ position: 'absolute', top: 0, right: 0, padding: '4px 8px', fontSize: 12 }}
+        >
           <Pencil size={12} /> Editar
         </button>
       </div>
@@ -80,15 +129,30 @@ function EditableField({ value, onChange, rows = 4, placeholder }) {
   }
   return (
     <div>
-      <textarea className="inp" rows={rows} value={draft} onChange={e => setDraft(e.target.value)}
-        style={{ marginBottom: 8, fontSize: 13.5, lineHeight: 1.6 }} autoFocus />
+      <textarea
+        className="inp"
+        rows={rows}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        style={{ marginBottom: 8, fontSize: 13.5, lineHeight: 1.6 }}
+        autoFocus
+      />
       <div className="flex gap-8">
-        <button className="btn-primary no-print" style={{ padding: "7px 12px", fontSize: 13 }}
-          onClick={() => { onChange(draft); setEditing(false) }}>
+        <button
+          className="btn-primary no-print"
+          style={{ padding: '7px 12px', fontSize: 13 }}
+          onClick={() => {
+            onChange(draft)
+            setEditing(false)
+          }}
+        >
           <Check size={13} /> Salvar
         </button>
-        <button className="btn-ghost no-print" style={{ padding: "7px 12px", fontSize: 13 }}
-          onClick={() => setEditing(false)}>
+        <button
+          className="btn-ghost no-print"
+          style={{ padding: '7px 12px', fontSize: 13 }}
+          onClick={() => setEditing(false)}
+        >
           <X size={13} /> Cancelar
         </button>
       </div>
@@ -98,7 +162,17 @@ function EditableField({ value, onChange, rows = 4, placeholder }) {
 
 function RefBox({ children }) {
   return (
-    <div style={{ marginTop: 10, padding: "8px 12px", background: "var(--bg)", borderRadius: 8, fontSize: 11, color: "var(--sub)", lineHeight: 1.6 }}>
+    <div
+      style={{
+        marginTop: 10,
+        padding: '8px 12px',
+        background: 'var(--bg)',
+        borderRadius: 8,
+        fontSize: 11,
+        color: 'var(--sub)',
+        lineHeight: 1.6,
+      }}
+    >
       <b>Referência:</b> {children}
     </div>
   )
@@ -106,12 +180,24 @@ function RefBox({ children }) {
 function LungSVG() {
   return (
     <svg width="34" height="34" viewBox="0 0 64 64" fill="none">
-      <path d="M30 10v16c-4 2-9 1-13 6-5 6-5 18-3 24 2 5 9 4 12 0 3-4 4-9 4-14V10z"
-        stroke="#15B8C4" strokeWidth="3.4" strokeLinejoin="round"/>
-      <path d="M34 10v16c4 2 9 1 13 6 5 6 5 18 3 24-2 5-9 4-12 0-3-4-4-9-4-14V10z"
-        stroke="#15B8C4" strokeWidth="3.4" strokeLinejoin="round"/>
-      <path d="M22 24c4 0 8 2 10 5 2-3 6-5 10-5"
-        stroke="#16233F" strokeWidth="3.4" strokeLinecap="round"/>
+      <path
+        d="M30 10v16c-4 2-9 1-13 6-5 6-5 18-3 24 2 5 9 4 12 0 3-4 4-9 4-14V10z"
+        stroke="#15B8C4"
+        strokeWidth="3.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M34 10v16c4 2 9 1 13 6 5 6 5 18 3 24-2 5-9 4-12 0-3-4-4-9-4-14V10z"
+        stroke="#15B8C4"
+        strokeWidth="3.4"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22 24c4 0 8 2 10 5 2-3 6-5 10-5"
+        stroke="#16233F"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
@@ -123,17 +209,19 @@ function LungSVG() {
 //   VITE_GROQ_API_KEY=gsk_sua_chave_aqui
 // Veja o arquivo `.env.example` para referência.
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
-const GROQ_MODEL   = 'llama-3.3-70b-versatile'
+const GROQ_MODEL = 'llama-3.3-70b-versatile'
 
 async function chamarGroq(prompt, maxTokens = 1000) {
   if (!GROQ_API_KEY) {
-    throw new Error('Chave da API Groq não configurada. Defina VITE_GROQ_API_KEY no arquivo .env e reinicie o app.')
+    throw new Error(
+      'Chave da API Groq não configurada. Defina VITE_GROQ_API_KEY no arquivo .env e reinicie o app.',
+    )
   }
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      Authorization: `Bearer ${GROQ_API_KEY}`,
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
@@ -141,7 +229,8 @@ async function chamarGroq(prompt, maxTokens = 1000) {
       messages: [
         {
           role: 'system',
-          content: 'Você é um fisioterapeuta cardiorrespiratório experiente da clínica Respirar Fisioterapeutas (Natal/RN). Escreva sempre em português formal, no estilo de relatórios fisioterapêuticos profissionais brasileiros.',
+          content:
+            'Você é um fisioterapeuta cardiorrespiratório experiente da clínica Respirar Fisioterapeutas (Natal/RN). Escreva sempre em português formal, no estilo de relatórios fisioterapêuticos profissionais brasileiros.',
         },
         { role: 'user', content: prompt },
       ],
@@ -198,7 +287,14 @@ async function gerarComparativoIA(paciente, cur, prev, calcCur, calcPrev) {
     ['CVF (espirometria)', calcCur.cvf, calcCur.cvfPct, calcPrev.cvf, calcPrev.cvfPct, 'L'],
     ['VEF₁ (espirometria)', calcCur.vef1, calcCur.vef1Pct, calcPrev.vef1, calcPrev.vef1Pct, 'L'],
     ['Preensão palmar', calcCur.grip, calcCur.gripPct, calcPrev.grip, calcPrev.gripPct, 'kgf'],
-    ['Quadríceps (dinamometria)', calcCur.quad, calcCur.quadPct, calcPrev.quad, calcPrev.quadPct, 'kgf'],
+    [
+      'Quadríceps (dinamometria)',
+      calcCur.quad,
+      calcCur.quadPct,
+      calcPrev.quad,
+      calcPrev.quadPct,
+      'kgf',
+    ],
     ['Bíceps (dinamometria)', calcCur.bic, calcCur.bicPct, calcPrev.bic, calcPrev.bicPct, 'kgf'],
     ['TSL 5 repetições', calcCur.sts5, null, calcPrev.sts5, null, 's (menor é melhor)'],
     ['TSL 1 min', calcCur.sts1, calcCur.sts1Pct, calcPrev.sts1, calcPrev.sts1Pct, 'rep'],
@@ -206,12 +302,18 @@ async function gerarComparativoIA(paciente, cur, prev, calcCur, calcPrev) {
 
   if (!metricas.length) return 'Não há variáveis comparáveis entre as duas avaliações.'
 
-  const linhasAnterior = metricas.map(([nome, , , p, pPct, unid]) =>
-    `- ${nome}: ${p} ${unid}${pPct != null ? ` (${pPct}% do predito)` : ''}`
-  ).join('\n')
-  const linhasAtual = metricas.map(([nome, c, cPct, , , unid]) =>
-    `- ${nome}: ${c} ${unid}${cPct != null ? ` (${cPct}% do predito)` : ''}`
-  ).join('\n')
+  const linhasAnterior = metricas
+    .map(
+      ([nome, , , p, pPct, unid]) =>
+        `- ${nome}: ${p} ${unid}${pPct != null ? ` (${pPct}% do predito)` : ''}`,
+    )
+    .join('\n')
+  const linhasAtual = metricas
+    .map(
+      ([nome, c, cPct, , , unid]) =>
+        `- ${nome}: ${c} ${unid}${cPct != null ? ` (${cPct}% do predito)` : ''}`,
+    )
+    .join('\n')
 
   const prompt = `Compare as duas avaliações fisioterapêuticas do paciente ${paciente.nome} (${paciente.idade} anos) e redija um parágrafo clínico sobre a evolução entre as datas.
 
@@ -229,51 +331,78 @@ manutenção de cada uma, e o que isso representa para o prognóstico e conduta 
 }
 
 function calcEv(ev, paciente) {
-  const idade = paciente.idade, sexo = paciente.sexo
+  const idade = paciente.idade,
+    sexo = paciente.sexo
   const peso = num(ev.vitais?.peso) || num(paciente.peso)
   const altura = num(ev.vitais?.altura) || num(paciente.altura)
 
-  const pimP  = num(ev.pimax?.predito)  ?? r1(predPImax(idade, sexo))
-  const pemP  = num(ev.pemax?.predito)  ?? r1(predPEmax(idade, sexo))
+  const pimP = num(ev.pimax?.predito) ?? r1(predPImax(idade, sexo))
+  const pemP = num(ev.pemax?.predito) ?? r1(predPEmax(idade, sexo))
   const sindP = num(ev.sindex?.predito) ?? r1(predSindex(idade, sexo))
-  const grP   = num(ev.grip?.predito)   ?? r1(predGrip(idade, peso, sexo))
+  const grP = num(ev.grip?.predito) ?? r1(predGrip(idade, peso, sexo))
   const repsP = num(ev.degrau?.preditoReps) ?? r1(predStepReps(idade, sexo))
-  const tc6P  = num(ev.tc6?.preditoDist) ?? r1(predTC6(idade, sexo))
-  const sts5P = num(ev.sts5?.predito)   ?? predSTS5(idade)
-  const sts1P = num(ev.sts1?.predito)   ?? predSTS1(idade, sexo)
-  const cvfP  = num(ev.espiro?.preBD?.cvfPred)  ?? r1(predCVF(idade, altura, sexo))
+  const tc6P = num(ev.tc6?.preditoDist) ?? r1(predTC6(idade, sexo))
+  const sts5P = num(ev.sts5?.predito) ?? predSTS5(idade)
+  const sts1P = num(ev.sts1?.predito) ?? predSTS1(idade, sexo)
+  const cvfP = num(ev.espiro?.preBD?.cvfPred) ?? r1(predCVF(idade, altura, sexo))
   const vef1P = num(ev.espiro?.preBD?.vef1Pred) ?? r1(predVEF1(idade, altura, sexo))
   const quadP = r1(predQuadriceps(idade, sexo))
-  const bicP  = r1(predBiceps(idade, sexo))
+  const bicP = r1(predBiceps(idade, sexo))
 
-  const pim  = num(ev.pimax?.obtido)
-  const pem  = num(ev.pemax?.obtido)
+  const pim = num(ev.pimax?.obtido)
+  const pem = num(ev.pemax?.obtido)
   const sind = num(ev.sindex?.obtido)
   const grip = num(ev.grip?.obtido)
   const reps = num(ev.degrau?.reps)
   const tc6d = num(ev.tc6?.distancia)
   const sts5 = num(ev.sts5?.tempo)
   const sts1 = num(ev.sts1?.reps)
-  const cvf  = num(ev.espiro?.preBD?.cvf)
+  const cvf = num(ev.espiro?.preBD?.cvf)
   const vef1 = num(ev.espiro?.preBD?.vef1)
-  const qD = num(ev.dinamo?.quadD), qE = num(ev.dinamo?.quadE)
-  const bD = num(ev.dinamo?.bicD),  bE = num(ev.dinamo?.bicE)
-  const quad = (qD != null && qE != null) ? r1((qD + qE) / 2) : (qD ?? qE ?? null)
-  const bic  = (bD != null && bE != null) ? r1((bD + bE) / 2) : (bD ?? bE ?? null)
+  const qD = num(ev.dinamo?.quadD),
+    qE = num(ev.dinamo?.quadE)
+  const bD = num(ev.dinamo?.bicD),
+    bE = num(ev.dinamo?.bicE)
+  const quad = qD != null && qE != null ? r1((qD + qE) / 2) : (qD ?? qE ?? null)
+  const bic = bD != null && bE != null ? r1((bD + bE) / 2) : (bD ?? bE ?? null)
 
   return {
-    pim, pimP, pimPct: pct(pim, pimP),
-    pem, pemP, pemPct: pct(pem, pemP),
-    sind, sindP, sindPct: pct(sind, sindP),
-    grip, grP, gripPct: pct(grip, grP),
-    reps, repsP, repsPct: pct(reps, repsP),
-    tc6d, tc6P, tc6Pct: pct(tc6d, tc6P),
-    sts5, sts5P, sts5Risk: sts5 == null ? null : sts5 <= sts5P ? 'Diminuído' : 'Aumentado',
-    sts1, sts1P, sts1Pct: pct(sts1, sts1P),
-    cvf, cvfP, cvfPct: pct(cvf, cvfP),
-    vef1, vef1P, vef1Pct: pct(vef1, vef1P),
-    quad, quadP, quadPct: pct(quad, quadP),
-    bic, bicP, bicPct: pct(bic, bicP),
+    pim,
+    pimP,
+    pimPct: pct(pim, pimP),
+    pem,
+    pemP,
+    pemPct: pct(pem, pemP),
+    sind,
+    sindP,
+    sindPct: pct(sind, sindP),
+    grip,
+    grP,
+    gripPct: pct(grip, grP),
+    reps,
+    repsP,
+    repsPct: pct(reps, repsP),
+    tc6d,
+    tc6P,
+    tc6Pct: pct(tc6d, tc6P),
+    sts5,
+    sts5P,
+    sts5Risk: sts5 == null ? null : sts5 <= sts5P ? 'Diminuído' : 'Aumentado',
+    sts1,
+    sts1P,
+    sts1Pct: pct(sts1, sts1P),
+    cvf,
+    cvfP,
+    cvfPct: pct(cvf, cvfP),
+    vef1,
+    vef1P,
+    vef1Pct: pct(vef1, vef1P),
+    quad,
+    quadP,
+    quadPct: pct(quad, quadP),
+    bic,
+    bicP,
+    bicPct: pct(bic, bicP),
   }
 }
 
@@ -289,20 +418,22 @@ export default function Relatorio() {
   const [loading, setLoading] = useState(true)
   const [gerando, setGerando] = useState(false)
   const [gerandoComp, setGerandoComp] = useState(false)
-  const [comparativoIA, setComparativoIA] = useState('')
   const [anteriores, setAnteriores] = useState([])
   const [compartilhando, setCompartilhando] = useState(false)
 
   useEffect(() => {
     Promise.all([getPaciente(pid), getAvaliacao(pid, aid), listarAvaliacoes(pid)])
       .then(([p, a, avs]) => {
-        setPaciente(p); setEv({ ...a })
+        setPaciente(p)
+        setEv({ ...a })
         // todas as avaliações anteriores à atual (para o seletor de comparação)
-        const ants = avs.filter(x => x.id !== aid && x.data < a.data)
+        const ants = avs
+          .filter((x) => x.id !== aid && x.data < a.data)
           .sort((a, b) => b.data.localeCompare(a.data))
         setAnteriores(ants)
         setPrev(ants[0] ?? null)
-      }).finally(() => setLoading(false))
+      })
+      .finally(() => setLoading(false))
   }, [pid, aid])
 
   const handleGerarIA = useCallback(async () => {
@@ -311,22 +442,32 @@ export default function Relatorio() {
     try {
       const calc = calcEv(ev, paciente)
       const texto = await gerarConclusaoIA(paciente, ev, calc)
-      setEv(cur => ({ ...cur, conclusaoIA: texto }))
-    } catch(e) { alert('Erro ao chamar IA: ' + e.message) }
-    finally { setGerando(false) }
-  }, [paciente, ev])
+      const updated = { ...ev, conclusaoIA: texto }
+      setEv(updated)
+      await salvarAvaliacao(pid, updated) // persiste imediatamente, sem depender de "Editar > Salvar"
+    } catch (e) {
+      alert('Erro ao chamar IA: ' + e.message)
+    } finally {
+      setGerando(false)
+    }
+  }, [paciente, ev, pid])
 
   const handleGerarComparativo = useCallback(async () => {
     if (!prev) return
     setGerandoComp(true)
     try {
-      const calcCur  = calcEv(ev, paciente)
+      const calcCur = calcEv(ev, paciente)
       const calcPrev = calcEv(prev, paciente)
       const texto = await gerarComparativoIA(paciente, ev, prev, calcCur, calcPrev)
-      setComparativoIA(texto)
-    } catch(e) { alert('Erro: ' + e.message) }
-    finally { setGerandoComp(false) }
-  }, [paciente, ev, prev])
+      const updated = { ...ev, comparativoIA: texto }
+      setEv(updated)
+      await salvarAvaliacao(pid, updated) // persiste imediatamente
+    } catch (e) {
+      alert('Erro: ' + e.message)
+    } finally {
+      setGerandoComp(false)
+    }
+  }, [paciente, ev, prev, pid])
 
   function handlePDF() {
     window.print()
@@ -337,9 +478,9 @@ export default function Relatorio() {
     // Pergunta se quer enviar para um número específico
     const numero = prompt(
       'Digite o número de WhatsApp do destinatário (com DDD, sem espaços ou traços).\nEx: 84991688285\n\nDeixe em branco para abrir o WhatsApp sem destinatário:',
-      ''
+      '',
     )
-    if (numero === null) return  // cancelou
+    if (numero === null) return // cancelou
 
     const msg = encodeURIComponent(
       `Olá! Segue o relatório fisioterapêutico de *${paciente.nome}* (avaliação de ${fmtDate(ev.data)}).
@@ -348,7 +489,7 @@ export default function Relatorio() {
 
 _Respirar Fisioterapeutas_
 📍 Av. Hermes da Fonseca, 390 — Lj 05 · Natal/RN
-📱 (84) 9 9168-8285`
+📱 (84) 9 9168-8285`,
     )
 
     // Limpa o número e monta a URL
@@ -367,27 +508,55 @@ _Respirar Fisioterapeutas_
     }, 800)
   }
 
-  if (loading || !ev || !paciente) return <div style={{ textAlign:'center', padding:48 }}><span className="spinner" /></div>
+  if (loading || !ev || !paciente)
+    return (
+      <div style={{ textAlign: 'center', padding: 48 }}>
+        <span className="spinner" />
+      </div>
+    )
 
   const calc = calcEv(ev, paciente)
-  const { pim, pimP, pimPct, pem, pemP, pemPct, grip, grP, gripPct,
-    reps, repsP, repsPct, sts5, sts5P, sts5Risk, sts1, sts1P, sts1Pct } = calc
+  const {
+    pim,
+    pimP,
+    pimPct,
+    pem,
+    pemP,
+    pemPct,
+    grip,
+    grP,
+    gripPct,
+    reps,
+    repsP,
+    repsPct,
+    sts5,
+    sts5P,
+    sts5Risk,
+    sts1,
+    sts1P,
+    sts1Pct,
+  } = calc
 
-  const idade = paciente.idade, sexo = paciente.sexo
+  const idade = paciente.idade,
+    sexo = paciente.sexo
   const peso = num(ev.vitais?.peso) || num(paciente.peso)
   const altura = num(ev.vitais?.altura) || num(paciente.altura)
   const imc = calcIMC(peso, altura)
 
-  const chartData = (ev.degrau?.serie ?? []).map(s => ({
-    t: s.t, FC: num(s.fc), SpO2: num(s.spo2),
-    PAS: num(s.pas), PAD: num(s.pad),
-    BORG: num(s.borg), PSE: num(s.pse),
+  const chartData = (ev.degrau?.serie ?? []).map((s) => ({
+    t: s.t,
+    FC: num(s.fc),
+    SpO2: num(s.spo2),
+    PAS: num(s.pas),
+    PAD: num(s.pad),
+    BORG: num(s.borg),
+    PSE: num(s.pse),
   }))
-  const hasChart = chartData.some(d => d.FC != null)
+  const hasChart = chartData.some((d) => d.FC != null)
 
   const fcRec1 = num(ev.degrau?.fcRec1)
   const fcRec3 = num(ev.degrau?.fcRec3)
-  const fcMax  = num(ev.degrau?.fcMax)
+  const fcMax = num(ev.degrau?.fcMax)
   const deltaRec1 = fcMax && fcRec1 ? fcMax - fcRec1 : null
   const deltaRec3 = fcMax && fcRec3 ? fcMax - fcRec3 : null
 
@@ -397,13 +566,19 @@ _Respirar Fisioterapeutas_
   return (
     <>
       {/* Controles — não imprimem */}
-      <div className="no-print flex-center gap-10" style={{ marginBottom:18 }}>
-        <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}`)} style={{ padding:'9px 12px' }}>
+      <div className="no-print flex-center gap-10" style={{ marginBottom: 18 }}>
+        <button
+          className="btn-ghost"
+          onClick={() => nav(`/paciente/${pid}`)}
+          style={{ padding: '9px 12px' }}
+        >
           <ArrowLeft size={18} />
         </button>
-        <div style={{ flex:1 }}>
+        <div style={{ flex: 1 }}>
           <h1>Relatório</h1>
-          <p className="text-sub">{paciente.nome} · {fmtDate(ev.data)}</p>
+          <p className="text-sub">
+            {paciente.nome} · {fmtDate(ev.data)}
+          </p>
         </div>
         <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}/avaliacao/${aid}`)}>
           <Pencil size={15} /> Editar
@@ -420,16 +595,36 @@ _Respirar Fisioterapeutas_
           RELATÓRIO (tudo abaixo vai para o PDF)
       ══════════════════════════════════════════════════════════════════ */}
       <div className="report" ref={reportRef}>
-
         {/* CAPA */}
-        <div style={{ textAlign:'center', padding:'32px 0 24px', borderBottom:'3px solid var(--teal)', marginBottom:20 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}><LungSVG /></div>
-          <div style={{ fontWeight:800, color:'var(--navy)', fontSize:22, letterSpacing:.3 }}>
-            re<span style={{ color:'var(--teal)' }}>spir</span>ar
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '32px 0 24px',
+            borderBottom: '3px solid var(--teal)',
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+            <LungSVG />
           </div>
-          <div style={{ color:'#9FB0C9', fontSize:11, letterSpacing:3, marginBottom:16 }}>FISIOTERAPEUTAS</div>
-          <div style={{ fontWeight:700, color:'var(--navy)', fontSize:18 }}>Relatório Fisioterapêutico</div>
-          <div style={{ color:'var(--teal-dark)', fontWeight:700, fontSize:14, marginTop:6, letterSpacing:.5 }}>
+          <div style={{ fontWeight: 800, color: 'var(--navy)', fontSize: 22, letterSpacing: 0.3 }}>
+            re<span style={{ color: 'var(--teal)' }}>spir</span>ar
+          </div>
+          <div style={{ color: '#9FB0C9', fontSize: 11, letterSpacing: 3, marginBottom: 16 }}>
+            FISIOTERAPEUTAS
+          </div>
+          <div style={{ fontWeight: 700, color: 'var(--navy)', fontSize: 18 }}>
+            Relatório Fisioterapêutico
+          </div>
+          <div
+            style={{
+              color: 'var(--teal-dark)',
+              fontWeight: 700,
+              fontSize: 14,
+              marginTop: 6,
+              letterSpacing: 0.5,
+            }}
+          >
             {paciente.nome.toUpperCase()}
           </div>
         </div>
@@ -445,7 +640,12 @@ _Respirar Fisioterapeutas_
               ['Idade', `${idade} anos`],
               ['Médico', ev.medico || paciente.medico || '—'],
               ['Objetivo', ev.objetivo || '—'],
-            ].map(([k,v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}
+            ].map(([k, v]) => (
+              <div key={k}>
+                <span>{k}</span>
+                <b>{v}</b>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -453,192 +653,279 @@ _Respirar Fisioterapeutas_
         {(v.fc || v.pas || v.spo2 || peso) && (
           <div className="rep-block no-break">
             <RepH>Dados Vitais</RepH>
-            <table className="rep-table">
-              <thead>
-                <tr>
-                  <th>FC (bpm)</th><th>FR (ipm)</th><th>PA (mmHg)</th>
-                  <th>SpO₂ (%)</th><th>Peso (kg)</th><th>Altura (cm)</th>
-                  <th>IMC</th><th>Classificação</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{v.fc || '—'}</td>
-                  <td>{v.fr || '—'}</td>
-                  <td>{v.pas && v.pad ? `${v.pas}×${v.pad}` : '—'}</td>
-                  <td>{v.spo2 || '—'}</td>
-                  <td>{peso || '—'}</td>
-                  <td>{altura || '—'}</td>
-                  <td>{imc ?? '—'}</td>
-                  <td>{classIMC(imc) || '—'}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="rep-table-wrap">
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>FC (bpm)</th>
+                    <th>FR (ipm)</th>
+                    <th>PA (mmHg)</th>
+                    <th>SpO₂ (%)</th>
+                    <th>Peso (kg)</th>
+                    <th>Altura (cm)</th>
+                    <th>IMC</th>
+                    <th>Classificação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{v.fc || '—'}</td>
+                    <td>{v.fr || '—'}</td>
+                    <td>{v.pas && v.pad ? `${v.pas}×${v.pad}` : '—'}</td>
+                    <td>{v.spo2 || '—'}</td>
+                    <td>{peso || '—'}</td>
+                    <td>{altura || '—'}</td>
+                    <td>{imc ?? '—'}</td>
+                    <td>{classIMC(imc) || '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* VISÃO GERAL */}
         <div className="rep-block">
           <RepH>Visão Geral</RepH>
-          <p style={{ lineHeight:1.65, textAlign:'justify' }}>
-            {paciente.historico || '—'}
-          </p>
-          <div style={{ marginTop:12 }}>
-            <p style={{ fontWeight:600, marginBottom:6 }}>Procedimentos avaliativos realizados:</p>
-            <ul style={{ paddingLeft:20, lineHeight:2, fontSize:13.5 }}>
-              <li><b>Aptidão Cardiovascular</b> — Teste do degrau de 6 min</li>
-              <li><b>Função respiratória</b> — Pressão Inspiratória Máxima (PImáx) · Pressão Expiratória Máxima (PEmáx)</li>
-              <li><b>Força Muscular Global</b> — Teste de Preensão Palmar · TSL 5 repetições · TSL 1 min</li>
-              {ev.testesAtivos?.includes('sppb') && <li><b>Mobilidade e equilíbrio</b> — SPPB (Short Physical Performance Battery)</li>}
+          <p style={{ lineHeight: 1.65, textAlign: 'justify' }}>{paciente.historico || '—'}</p>
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontWeight: 600, marginBottom: 6 }}>
+              Procedimentos avaliativos realizados:
+            </p>
+            <ul style={{ paddingLeft: 20, lineHeight: 2, fontSize: 13.5 }}>
+              <li>
+                <b>Aptidão Cardiovascular</b> — Teste do degrau de 6 min
+              </li>
+              <li>
+                <b>Função respiratória</b> — Pressão Inspiratória Máxima (PImáx) · Pressão
+                Expiratória Máxima (PEmáx)
+              </li>
+              <li>
+                <b>Força Muscular Global</b> — Teste de Preensão Palmar · TSL 5 repetições · TSL 1
+                min
+              </li>
+              {ev.testesAtivos?.includes('sppb') && (
+                <li>
+                  <b>Mobilidade e equilíbrio</b> — SPPB (Short Physical Performance Battery)
+                </li>
+              )}
             </ul>
           </div>
         </div>
 
         {/* ── TESTE DO DEGRAU ─────────────────────────────────────────── */}
-        <div className="rep-block">
+        <div className="rep-block rep-page-break">
           <RepH>Teste do Degrau de 6 min</RepH>
 
-          <p style={{ lineHeight:1.65, marginBottom:12 }}>
-            Testes realizados conforme publicado por RITT, et al. (2021)¹, realizado em um degrau
-            de 20 cm de altura. Onde o paciente subiu e desceu o degrau o mais rápido possível por
-            6 minutos, sem usar os braços para se apoiar com pausas para descanso permitidas sem
+          <p style={{ lineHeight: 1.65, marginBottom: 12 }}>
+            Testes realizados conforme publicado por RITT, et al. (2021)¹, realizado em um degrau de
+            20 cm de altura. Onde o paciente subiu e desceu o degrau o mais rápido possível por 6
+            minutos, sem usar os braços para se apoiar com pausas para descanso permitidas sem
             interrupção no tempo.
           </p>
 
-          <p style={{ fontWeight:700, marginBottom:8 }}>Resultados:</p>
-          <ul style={{ paddingLeft:20, lineHeight:2.2, fontSize:13.5 }}>
-            <li>Monitoramento realizado com cardiofrequencímetro Polar H10 com registro eletrocardiográfico de 1 derivação (não especificada pelo fabricante).</li>
-            {reps && repsP && <li>
-              Executou <b>{reps} repetições</b>, o que corresponde a <b>{repsPct}% do predito</b> ({r1(repsP)} rep) para idade e sexo.
-            </li>}
-            <li>Apresentou resposta {ev.degrau?.arritmia ? 'alterada' : 'normal'} da FC, com aumento progressivo{ev.degrau?.arritmia ? ' e arritmias observadas' : ', porém acentuado nos primeiros minutos'}.</li>
-            <li>Apresentou resposta {ev.degrau?.broncoespasmo ? 'alterada' : 'normal'} da Pressão Arterial retornando aos valores basais após encerramento do teste.</li>
-            {ev.degrau?.borgMax && <li>
-              Percepção de Esforço medido pela escala de BORG apresentou valor máximo de <b>{ev.degrau.borgMax} pontos</b> ({borgLabel(ev.degrau.borgMax)}).
-            </li>}
-            <li>{ev.degrau?.arritmia ? 'Foram detectadas alterações de ritmo durante o teste.' : 'Apresentou ritmo regular, sem arritmias detectáveis.'}</li>
-            <li>{ev.degrau?.interrupcao ? 'Realizou o teste com interrupções.' : 'Realizou o teste sem interrupções no ritmo.'}</li>
-            <li>{ev.degrau?.broncoespasmo ? 'Foram observados sinais de broncoespasmo/tosse ou necessidade de O₂ suplementar.' : 'Não foram observados distúrbios perfusionais, exacerbações de broncoespasmo, tosse ou necessidade de uso de O₂ suplementar durante o teste.'}</li>
-            <li>As variáveis cardiorrespiratórias e BORG podem ser analisadas nos gráficos a seguir.</li>
+          <p style={{ fontWeight: 700, marginBottom: 8 }}>Resultados:</p>
+          <ul style={{ paddingLeft: 20, lineHeight: 2.2, fontSize: 13.5 }}>
+            <li>
+              Monitoramento realizado com cardiofrequencímetro Polar H10 com registro
+              eletrocardiográfico de 1 derivação (não especificada pelo fabricante).
+            </li>
+            {reps && repsP && (
+              <li>
+                Executou <b>{reps} repetições</b>, o que corresponde a <b>{repsPct}% do predito</b>{' '}
+                ({r1(repsP)} rep) para idade e sexo.
+              </li>
+            )}
+            <li>
+              Apresentou resposta {ev.degrau?.arritmia ? 'alterada' : 'normal'} da FC, com aumento
+              progressivo
+              {ev.degrau?.arritmia
+                ? ' e arritmias observadas'
+                : ', porém acentuado nos primeiros minutos'}
+              .
+            </li>
+            <li>
+              Apresentou resposta {ev.degrau?.broncoespasmo ? 'alterada' : 'normal'} da Pressão
+              Arterial retornando aos valores basais após encerramento do teste.
+            </li>
+            {ev.degrau?.borgMax && (
+              <li>
+                Percepção de Esforço medido pela escala de BORG apresentou valor máximo de{' '}
+                <b>{ev.degrau.borgMax} pontos</b> ({borgLabel(ev.degrau.borgMax)}).
+              </li>
+            )}
+            <li>
+              {ev.degrau?.arritmia
+                ? 'Foram detectadas alterações de ritmo durante o teste.'
+                : 'Apresentou ritmo regular, sem arritmias detectáveis.'}
+            </li>
+            <li>
+              {ev.degrau?.interrupcao
+                ? 'Realizou o teste com interrupções.'
+                : 'Realizou o teste sem interrupções no ritmo.'}
+            </li>
+            <li>
+              {ev.degrau?.broncoespasmo
+                ? 'Foram observados sinais de broncoespasmo/tosse ou necessidade de O₂ suplementar.'
+                : 'Não foram observados distúrbios perfusionais, exacerbações de broncoespasmo, tosse ou necessidade de uso de O₂ suplementar durante o teste.'}
+            </li>
+            <li>
+              As variáveis cardiorrespiratórias e BORG podem ser analisadas nos gráficos a seguir.
+            </li>
           </ul>
 
           {/* Tabela FC */}
           {fcMax && (
-            <table className="rep-table" style={{ marginTop:12 }}>
-              <thead>
-                <tr><th>Data</th><th>FC máx</th><th>FC rec. 1 min</th><th>FC rec. 3 min</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{fmtDate(ev.data)}</td>
-                  <td>{fcMax} bpm</td>
-                  <td>{fcRec1 ? `${fcRec1} (Δ ${deltaRec1}) bpm` : '—'}</td>
-                  <td>{fcRec3 ? `${fcRec3} (Δ ${deltaRec3}) bpm` : '—'}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="rep-table-wrap">
+              <table className="rep-table" style={{ marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>FC máx</th>
+                    <th>FC rec. 1 min</th>
+                    <th>FC rec. 3 min</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{fmtDate(ev.data)}</td>
+                    <td>{fcMax} bpm</td>
+                    <td>{fcRec1 ? `${fcRec1} (Δ ${deltaRec1}) bpm` : '—'}</td>
+                    <td>{fcRec3 ? `${fcRec3} (Δ ${deltaRec3}) bpm` : '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* Gráficos */}
           {hasChart && (
-            <div className="charts-grid no-break" style={{ marginTop:14 }}>
+            <div className="charts-grid no-break" style={{ marginTop: 14 }}>
               {/* Barras de repetições */}
               <ChartCard title="Teste do Degrau — Repetições">
-                <BarChart data={[
-                  { name:'Executado', valor: reps ?? 0, fill:'#D14B4B' },
-                  { name:'Predito',   valor: r1(repsP) ?? 0, fill:'#E3EAEF' },
-                ]} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                <BarChart
+                  data={[
+                    { name: 'Executado', valor: reps ?? 0, fill: '#D14B4B' },
+                    { name: 'Predito', valor: r1(repsP) ?? 0, fill: '#E3EAEF' },
+                  ]}
+                  margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" tick={{ fontSize:10 }} />
-                  <YAxis tick={{ fontSize:10 }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Bar dataKey="valor" radius={[4,4,0,0]}>
-                    {[{ fill:'#D14B4B' },{ fill:'#CCD5DC' }].map((entry, i) => (
+                  <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                    {[{ fill: '#D14B4B' }, { fill: '#CCD5DC' }].map((entry, i) => (
                       <rect key={i} fill={entry.fill} />
                     ))}
                   </Bar>
                 </BarChart>
               </ChartCard>
               <ChartCard title="FC e SpO₂">
-                <LineChart data={chartData} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                <LineChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="t" tick={{ fontSize:10 }} />
-                  <YAxis tick={{ fontSize:10 }} />
-                  <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                  <Line dataKey="FC" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
-                  <Line dataKey="SpO2" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
+                  <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line dataKey="FC" stroke="var(--bad)" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line dataKey="SpO2" stroke="var(--good)" strokeWidth={2} dot={{ r: 2 }} />
                 </LineChart>
               </ChartCard>
               <ChartCard title="PAS e PAD">
-                <LineChart data={chartData} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                <LineChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="t" tick={{ fontSize:10 }} />
-                  <YAxis tick={{ fontSize:10 }} />
-                  <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                  <Line dataKey="PAS" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
-                  <Line dataKey="PAD" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
+                  <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Line dataKey="PAS" stroke="var(--good)" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line dataKey="PAD" stroke="var(--bad)" strokeWidth={2} dot={{ r: 2 }} />
                 </LineChart>
               </ChartCard>
               <ChartCard title="BORG e PSE">
-                <BarChart data={chartData} margin={{ top:4, right:4, left:-18, bottom:0 }}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="t" tick={{ fontSize:10 }} />
-                  <YAxis tick={{ fontSize:10 }} />
-                  <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                  <Bar dataKey="BORG" fill="var(--teal)" radius={[3,3,0,0]} />
-                  <Bar dataKey="PSE"  fill="var(--navy)" radius={[3,3,0,0]} />
+                  <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="BORG" fill="var(--teal)" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="PSE" fill="var(--navy)" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ChartCard>
             </div>
           )}
 
-          {ev.degrau?.obs && <p style={{ marginTop:10 }}>{ev.degrau.obs}</p>}
+          {ev.degrau?.obs && <p style={{ marginTop: 10 }}>{ev.degrau.obs}</p>}
 
           {/* Imagens do degrau */}
           {(ev.degrau?.imagens ?? []).length > 0 && (
-            <div style={{ marginTop:14 }}>
-              <p style={{ fontWeight:600, marginBottom:8 }}>Registros (ECG / imagens):</p>
-              <div className="flex gap-8" style={{ flexWrap:'wrap' }}>
+            <div style={{ marginTop: 14 }}>
+              <p style={{ fontWeight: 600, marginBottom: 8 }}>Registros (ECG / imagens):</p>
+              <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
                 {ev.degrau.imagens.map((img, i) => (
-                  <img key={i} src={img.base64} alt={img.nome}
-                    style={{ maxWidth:260, borderRadius:8, border:'1px solid var(--border)' }} />
+                  <img
+                    key={i}
+                    src={img.base64}
+                    alt={img.nome}
+                    style={{ maxWidth: 260, borderRadius: 8, border: '1px solid var(--border)' }}
+                  />
                 ))}
               </div>
             </div>
           )}
 
           {/* Equações de referência */}
-          <div style={{ marginTop:14, padding:10, background:'var(--bg)', borderRadius:8, fontSize:11.5, color:'var(--sub)' }}>
-            <b>Equações de referência:</b><br />
-            TD6' (Albuquerque et al, 2019): (166,9 – idade) + (0,7 × FC) + (20,7 × sexo; Masc: 1, Fem: 0)<br />
-            ACSM (2018): VO₂pico = (0,02 × distância [m]) – (0,191 × idade) – (0,07 × peso [kg]) + (0,09 × altura [cm]) + (0,26 × PTP ×10⁻³) + 2,45
+          <div
+            style={{
+              marginTop: 14,
+              padding: 10,
+              background: 'var(--bg)',
+              borderRadius: 8,
+              fontSize: 11.5,
+              color: 'var(--sub)',
+            }}
+          >
+            <b>Equações de referência:</b>
+            <br />
+            TD6' (Albuquerque et al, 2019): (166,9 – idade) + (0,7 × FC) + (20,7 × sexo; Masc: 1,
+            Fem: 0)
+            <br />
+            ACSM (2018): VO₂pico = (0,02 × distância [m]) – (0,191 × idade) – (0,07 × peso [kg]) +
+            (0,09 × altura [cm]) + (0,26 × PTP ×10⁻³) + 2,45
           </div>
 
-          <div style={{ marginTop:8, fontSize:11, color:'var(--sub)' }}>
-            ¹ Ritt LEF, Darzé ES, Feitosa GF, Porto JS, Bastos G, Albuquerque RBL de, et al. O Teste do Degrau de Seis Minutos
-            como Preditor de Capacidade Funcional de Acordo com o Consumo de Oxigênio de Pico em Pacientes Cardíacos.
-            Arq Bras Cardiol [Internet]. 2021 Nov;116(5):889–95. DOI: 10.36660/abc.20190624
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sub)' }}>
+            ¹ Ritt LEF, Darzé ES, Feitosa GF, Porto JS, Bastos G, Albuquerque RBL de, et al. O Teste
+            do Degrau de Seis Minutos como Preditor de Capacidade Funcional de Acordo com o Consumo
+            de Oxigênio de Pico em Pacientes Cardíacos. Arq Bras Cardiol [Internet]. 2021
+            Nov;116(5):889–95. DOI: 10.36660/abc.20190624
           </div>
         </div>
 
         {/* ── FUNÇÃO RESPIRATÓRIA ─────────────────────────────────────── */}
-        <div className="rep-block no-break">
+        <div className="rep-block no-break rep-page-break">
           <RepH>Função Muscular Respiratória</RepH>
 
           {/* PImáx */}
-          <div style={{ marginBottom:14 }}>
-            <p style={{ fontWeight:700, color:'var(--teal-dark)', marginBottom:6 }}>Pressão Inspiratória Máxima</p>
-            <p style={{ lineHeight:1.65, marginBottom:8 }}>
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontWeight: 700, color: 'var(--teal-dark)', marginBottom: 6 }}>
+              Pressão Inspiratória Máxima
+            </p>
+            <p style={{ lineHeight: 1.65, marginBottom: 8 }}>
               A pressão inspiratória máxima (PImáx) representa a força dos músculos inspiratórios e
-              sua avaliação é crucial para pneumopatas e cardiopatas, pois a fraqueza desses músculos
-              pode levar a dificuldades respiratórias, intolerância ao exercício e piora da qualidade de vida.
+              sua avaliação é crucial para pneumopatas e cardiopatas, pois a fraqueza desses
+              músculos pode levar a dificuldades respiratórias, intolerância ao exercício e piora da
+              qualidade de vida.
             </p>
             {pim && (
               <>
-                <p style={{ lineHeight:1.65, marginBottom:8 }}>
-                  Na avaliação da Pressão Inspiratória Máxima, obteve um valor de <b>{pim} cmH₂O</b>,
-                  correspondendo a <b>{pimPct}% do predito</b> ({r1(pimP)} cmH₂O), classificando-se,
-                  portanto, com força muscular inspiratória <b>{pimPct >= 80 ? 'normal' : 'reduzida'}</b>.
+                <p style={{ lineHeight: 1.65, marginBottom: 8 }}>
+                  Na avaliação da Pressão Inspiratória Máxima, obteve um valor de <b>{pim} cmH₂O</b>
+                  , correspondendo a <b>{pimPct}% do predito</b> ({r1(pimP)} cmH₂O),
+                  classificando-se, portanto, com força muscular inspiratória{' '}
+                  <b>{pimPct >= 80 ? 'normal' : 'reduzida'}</b>.
                 </p>
                 <RepTable rows={[['PImáx', `${pim} cmH₂O`, pimP, pimPct]]} />
               </>
@@ -647,18 +934,22 @@ _Respirar Fisioterapeutas_
 
           {/* PEmáx */}
           <div>
-            <p style={{ fontWeight:700, color:'var(--teal-dark)', marginBottom:6 }}>Pressão Expiratória Máxima</p>
-            <p style={{ lineHeight:1.65, marginBottom:8 }}>
+            <p style={{ fontWeight: 700, color: 'var(--teal-dark)', marginBottom: 6 }}>
+              Pressão Expiratória Máxima
+            </p>
+            <p style={{ lineHeight: 1.65, marginBottom: 8 }}>
               A pressão expiratória máxima (PEmáx) representa a força dos músculos expiratórios e,
               embora ela seja menos comum de ser alterada, sua diminuição impacta significativamente
-              em algumas funções como a tosse, intolerância ao exercício e piora da qualidade de vida.
+              em algumas funções como a tosse, intolerância ao exercício e piora da qualidade de
+              vida.
             </p>
             {pem && (
               <>
-                <p style={{ lineHeight:1.65, marginBottom:8 }}>
+                <p style={{ lineHeight: 1.65, marginBottom: 8 }}>
                   Na avaliação da Pressão Expiratória Máxima, obteve um valor de <b>{pem} cmH₂O</b>,
                   correspondendo a <b>{pemPct}% do predito</b> ({r1(pemP)} cmH₂O), classificando-se,
-                  portanto, com força muscular expiratória <b>{pemPct >= 80 ? 'normal' : 'reduzida'}</b>.
+                  portanto, com força muscular expiratória{' '}
+                  <b>{pemPct >= 80 ? 'normal' : 'reduzida'}</b>.
                 </p>
                 <RepTable rows={[['PEmáx', `${pem} cmH₂O`, pemP, pemPct]]} />
               </>
@@ -667,26 +958,32 @@ _Respirar Fisioterapeutas_
         </div>
 
         {/* ── FUNÇÃO PERIFÉRICA ───────────────────────────────────────── */}
-        <div className="rep-block no-break">
+        <div className="rep-block no-break rep-page-break">
           <RepH>Função Muscular Periférica</RepH>
 
           {/* Preensão */}
-          <div style={{ marginBottom:14 }}>
-            <p style={{ fontWeight:700, color:'var(--teal-dark)', marginBottom:6 }}>Força de Preensão Manual</p>
-            <p style={{ lineHeight:1.65, marginBottom:8 }}>
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontWeight: 700, color: 'var(--teal-dark)', marginBottom: 6 }}>
+              Força de Preensão Manual
+            </p>
+            <p style={{ lineHeight: 1.65, marginBottom: 8 }}>
               O teste de preensão palmar avalia a força dos músculos da mão e do antebraço,
-              utilizando um dinamômetro. Essa medida é importante para avaliar a força muscular global,
-              identificar possíveis fraquezas e acompanhar a evolução de tratamentos.
+              utilizando um dinamômetro. Essa medida é importante para avaliar a força muscular
+              global, identificar possíveis fraquezas e acompanhar a evolução de tratamentos.
             </p>
             {grip && (
               <>
                 <RepTable rows={[['Preensão palmar', `${grip} kgf`, grP, gripPct]]} />
-                <p style={{ marginTop:8, lineHeight:1.65 }}>
-                  Apresentou força de preensão palmar de <b>{grip} kgf</b>, o que corresponde a <b>{gripPct}%</b> do predito.
-                  {gripPct < 80 ? ' Isso representa uma força dos músculos da mão e antebraço reduzida, o que pode representar uma diminuição da composição muscular geral, além de um risco de sarcopenia aumentado.' : ' Força dentro dos parâmetros de normalidade.'}
+                <p style={{ marginTop: 8, lineHeight: 1.65 }}>
+                  Apresentou força de preensão palmar de <b>{grip} kgf</b>, o que corresponde a{' '}
+                  <b>{gripPct}%</b> do predito.
+                  {gripPct < 80
+                    ? ' Isso representa uma força dos músculos da mão e antebraço reduzida, o que pode representar uma diminuição da composição muscular geral, além de um risco de sarcopenia aumentado.'
+                    : ' Força dentro dos parâmetros de normalidade.'}
                 </p>
-                <div style={{ marginTop:6, fontSize:11.5, color:'var(--sub)' }}>
-                  34,996 − (0,382 × idade) + (0,174 × peso) + (13,628 × sexo) | (mas=1; fem=0) — Cálculo predito para força de preensão palmar da mão dominante.
+                <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--sub)' }}>
+                  34,996 − (0,382 × idade) + (0,174 × peso) + (13,628 × sexo) | (mas=1; fem=0) —
+                  Cálculo predito para força de preensão palmar da mão dominante.
                 </div>
               </>
             )}
@@ -694,116 +991,516 @@ _Respirar Fisioterapeutas_
 
           {/* TSL */}
           <div>
-            <p style={{ fontWeight:700, color:'var(--teal-dark)', marginBottom:6 }}>Teste de Sentar e Levantar (TSL)</p>
-            <p style={{ lineHeight:1.65, marginBottom:10 }}>
+            <p style={{ fontWeight: 700, color: 'var(--teal-dark)', marginBottom: 6 }}>
+              Teste de Sentar e Levantar (TSL)
+            </p>
+            <p style={{ lineHeight: 1.65, marginBottom: 10 }}>
               O movimento de sentar-se e levantar é considerado pré-requisito fundamental para a
-              mobilidade e a independência funcional e consegue estimar a capacidade funcional,
-              a potência de membros inferiores bem como o risco de quedas.
+              mobilidade e a independência funcional e consegue estimar a capacidade funcional, a
+              potência de membros inferiores bem como o risco de quedas.
             </p>
             {sts5 != null && (
-              <div style={{ marginBottom:12 }}>
-                <p style={{ fontWeight:600, marginBottom:6 }}>TSL 5 repetições</p>
-                <table className="rep-table">
-                  <thead><tr><th>Data</th><th>Tempo</th><th>Predito</th><th>Risco de Queda</th></tr></thead>
-                  <tbody>
-                    <tr>
-                      <td>{fmtDate(ev.data)}</td>
-                      <td>{sts5} s</td>
-                      <td>{sts5P} s</td>
-                      <td><Tag tone={sts5Risk === 'Diminuído' ? 'good' : 'bad'}>{sts5Risk}</Tag></td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontWeight: 600, marginBottom: 6 }}>TSL 5 repetições</p>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Tempo</th>
+                        <th>Predito</th>
+                        <th>Risco de Queda</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{fmtDate(ev.data)}</td>
+                        <td>{sts5} s</td>
+                        <td>{sts5P} s</td>
+                        <td>
+                          <Tag tone={sts5Risk === 'Diminuído' ? 'good' : 'bad'}>{sts5Risk}</Tag>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
             {sts1 != null && (
               <div>
-                <p style={{ fontWeight:600, marginBottom:6 }}>TSL 1 min</p>
-                <table className="rep-table">
-                  <thead><tr><th>Data</th><th>Repetições</th><th>Predito</th><th>% predito</th></tr></thead>
-                  <tbody>
-                    <tr>
-                      <td>{fmtDate(ev.data)}</td>
-                      <td>{sts1}</td>
-                      <td>{sts1P}</td>
-                      <td><Tag tone={sts1Pct >= 80 ? 'good' : 'bad'}>{sts1Pct}%</Tag></td>
-                    </tr>
-                  </tbody>
-                </table>
+                <p style={{ fontWeight: 600, marginBottom: 6 }}>TSL 1 min</p>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Data</th>
+                        <th>Repetições</th>
+                        <th>Predito</th>
+                        <th>% predito</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{fmtDate(ev.data)}</td>
+                        <td>{sts1}</td>
+                        <td>{sts1P}</td>
+                        <td>
+                          <Tag tone={sts1Pct >= 80 ? 'good' : 'bad'}>{sts1Pct}%</Tag>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* ── SPPB ──────────────────────────────────────────────────────── */}
-        {ev.testesAtivos?.includes('sppb') && (() => {
-          const s = ev.sppb ?? {}
-          const temDados = [s.pontoVel, s.pontoEquilibrio, s.tsl5ponto].some(v => v !== '' && v != null)
-          if (!temDados) return null
-          const { total, class: classe } = sppbTotal({
-            vel: s.pontoVel, equilibrio: s.pontoEquilibrio, tsl5: s.tsl5ponto,
-          })
-          const tone = total >= 10 ? 'good' : total >= 7 ? 'warn' : 'bad'
-          return (
-            <div className="rep-block no-break">
-              <RepH>SPPB — Short Physical Performance Battery</RepH>
-              <p style={{ lineHeight:1.65, marginBottom:12 }}>
-                Bateria curta de desempenho físico composta por três testes — velocidade de marcha,
-                equilíbrio estático progressivo e teste de sentar e levantar — utilizada para avaliar
-                mobilidade, equilíbrio e risco de incapacidade funcional em idosos e em condições crônicas.
-              </p>
-              <table className="rep-table">
-                <thead><tr><th>Subteste</th><th>Medida</th><th>Pontuação (0–4)</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td style={{ fontWeight:600 }}>Velocidade de marcha (4 m)</td>
-                    <td>{s.velMarcha4m ? `${s.velMarcha4m} s` : '—'}</td>
-                    <td>{s.pontoVel !== '' && s.pontoVel != null ? s.pontoVel : '—'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ fontWeight:600 }}>Equilíbrio (pés juntos / semi-tandem / tandem)</td>
-                    <td>
-                      {[
-                        s.peJuntos ? `Pés juntos: ${s.peJuntos}s` : null,
-                        s.umPeFrente ? `Semi-tandem: ${s.umPeFrente}s` : null,
-                        s.haluxCalcanhar ? `Tandem: ${s.haluxCalcanhar}s` : null,
-                      ].filter(Boolean).join(' · ') || '—'}
-                    </td>
-                    <td>{s.pontoEquilibrio !== '' && s.pontoEquilibrio != null ? s.pontoEquilibrio : '—'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ fontWeight:600 }}>Sentar e levantar (5 repetições)</td>
-                    <td>{ev.sts5?.tempo ? `${ev.sts5.tempo} s` : '—'}</td>
-                    <td>{s.tsl5ponto !== '' && s.tsl5ponto != null ? s.tsl5ponto : '—'}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="flex-center gap-10" style={{ marginTop:12 }}>
-                <span style={{ fontWeight:700, color:'var(--navy)' }}>Pontuação total: {total} / 12</span>
-                <Tag tone={tone}>{classe}</Tag>
+        {ev.testesAtivos?.includes('sppb') &&
+          (() => {
+            const s = ev.sppb ?? {}
+            const temDados = [s.pontoVel, s.pontoEquilibrio, s.tsl5ponto].some(
+              (v) => v !== '' && v != null,
+            )
+            if (!temDados) return null
+            const { total, class: classe } = sppbTotal({
+              vel: s.pontoVel,
+              equilibrio: s.pontoEquilibrio,
+              tsl5: s.tsl5ponto,
+            })
+            const tone = total >= 10 ? 'good' : total >= 7 ? 'warn' : 'bad'
+            return (
+              <div className="rep-block no-break rep-page-break">
+                <RepH>SPPB — Short Physical Performance Battery</RepH>
+                <p style={{ lineHeight: 1.65, marginBottom: 12 }}>
+                  Bateria curta de desempenho físico composta por três testes — velocidade de
+                  marcha, equilíbrio estático progressivo e teste de sentar e levantar — utilizada
+                  para avaliar mobilidade, equilíbrio e risco de incapacidade funcional em idosos e
+                  em condições crônicas.
+                </p>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Subteste</th>
+                        <th>Medida</th>
+                        <th>Pontuação (0–4)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ fontWeight: 600 }}>Velocidade de marcha (4 m)</td>
+                        <td>{s.velMarcha4m ? `${s.velMarcha4m} s` : '—'}</td>
+                        <td>{s.pontoVel !== '' && s.pontoVel != null ? s.pontoVel : '—'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 600 }}>
+                          Equilíbrio (pés juntos / semi-tandem / tandem)
+                        </td>
+                        <td>
+                          {[
+                            s.peJuntos ? `Pés juntos: ${s.peJuntos}s` : null,
+                            s.umPeFrente ? `Semi-tandem: ${s.umPeFrente}s` : null,
+                            s.haluxCalcanhar ? `Tandem: ${s.haluxCalcanhar}s` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || '—'}
+                        </td>
+                        <td>
+                          {s.pontoEquilibrio !== '' && s.pontoEquilibrio != null
+                            ? s.pontoEquilibrio
+                            : '—'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 600 }}>Sentar e levantar (5 repetições)</td>
+                        <td>{ev.sts5?.tempo ? `${ev.sts5.tempo} s` : '—'}</td>
+                        <td>{s.tsl5ponto !== '' && s.tsl5ponto != null ? s.tsl5ponto : '—'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex-center gap-10" style={{ marginTop: 12 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--navy)' }}>
+                    Pontuação total: {total} / 12
+                  </span>
+                  <Tag tone={tone}>{classe}</Tag>
+                </div>
+                <RefBox>
+                  Guralnik JM et al. J Gerontol. 1994;49(2):M85-94 — escore 0–3 incapacidade grave,
+                  4–6 moderada, 7–9 leve, 10–12 normal
+                </RefBox>
               </div>
-              <RefBox>Guralnik JM et al. J Gerontol. 1994;49(2):M85-94 — escore 0–3 incapacidade grave, 4–6 moderada, 7–9 leve, 10–12 normal</RefBox>
-            </div>
-          )
-        })()}
+            )
+          })()}
+
+
+        {/* ── TC6 ─────────────────────────────────────────────────────── */}
+        {ev.testesAtivos?.includes('tc6') &&
+          ev.tc6?.distancia &&
+          (() => {
+            const dist = num(ev.tc6.distancia)
+            const predDist = num(ev.tc6.preditoDist) ?? r1(predTC6(idade, sexo))
+            const pctDist = pct(dist, predDist)
+            const vo2 = vo2TC6(dist, idade, peso, altura)
+            const mets = vo2ToMETs(vo2)
+            const fcMax6 = num(ev.tc6.fcMax)
+            const fcRec1 = num(ev.tc6.fcRec1)
+            const fcRec3 = num(ev.tc6.fcRec3)
+            const d1 = fcMax6 && fcRec1 ? fcMax6 - fcRec1 : null
+            const d3 = fcMax6 && fcRec3 ? fcMax6 - fcRec3 : null
+            const chartTC6 = (ev.tc6.serie ?? []).map((s) => ({
+              t: s.t,
+              FC: num(s.fc),
+              SpO2: num(s.spo2),
+              PAS: num(s.pas),
+              PAD: num(s.pad),
+              BORG: num(s.borg),
+              PSE: num(s.pse),
+            }))
+            const hasChart = chartTC6.some((d) => d.FC != null)
+            return (
+              <div className="rep-block rep-page-break">
+                <RepH>Teste de Caminhada de 6 min (TC6)</RepH>
+                <p style={{ lineHeight: 1.65, marginBottom: 12 }}>
+                  Teste realizado conforme recomendações da ATS/ERS em corredor plano adaptado para
+                  20 m.
+                </p>
+                <p style={{ fontWeight: 700, marginBottom: 8 }}>Resultados:</p>
+                <ul style={{ paddingLeft: 20, lineHeight: 2.2, fontSize: 13.5 }}>
+                  <li>
+                    Distância percorrida: <b>{dist} m</b> ({pctDist}% do predito de {predDist} m)
+                    {classTC6Pct(pctDist)
+                      ? ` — aptidão cardiorrespiratória "${classTC6Pct(pctDist)}"`
+                      : ''}
+                    .
+                  </li>
+                  {num(ev.tc6.nVoltas) && num(ev.tc6.distVolta) && (
+                    <li>
+                      Percurso de <b>{num(ev.tc6.distVolta)} m por volta</b>, totalizando{' '}
+                      <b>{num(ev.tc6.nVoltas)} volta(s)</b> completadas.
+                    </li>
+                  )}
+                  {vo2 && (
+                    <li>
+                      VO₂pico estimado (ACSM 2018): <b>{vo2} mℓ·kg⁻¹·min⁻¹</b> ({mets} METs).
+                    </li>
+                  )}
+                  {ev.tc6.nParadas ? (
+                    <li>Realizou {ev.tc6.nParadas} parada(s) durante o teste.</li>
+                  ) : (
+                    <li>Realizou o teste sem paradas.</li>
+                  )}
+                  {ev.tc6.obs && <li>{ev.tc6.obs}</li>}
+                </ul>
+                {fcMax6 && (
+                  <div className="rep-table-wrap">
+                    <table className="rep-table" style={{ marginTop: 12 }}>
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>FC máx</th>
+                          <th>FC rec. 1 min</th>
+                          <th>FC rec. 3 min</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>{fmtDate(ev.data)}</td>
+                          <td>{fcMax6} bpm</td>
+                          <td>{fcRec1 ? `${fcRec1} (Δ ${d1}) bpm` : '—'}</td>
+                          <td>{fcRec3 ? `${fcRec3} (Δ ${d3}) bpm` : '—'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {hasChart && (
+                  <div className="charts-grid no-break" style={{ marginTop: 14 }}>
+                    <ChartCard title="FC e SpO₂">
+                      <LineChart
+                        data={chartTC6}
+                        margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Line dataKey="FC" stroke="var(--bad)" strokeWidth={2} dot={{ r: 2 }} />
+                        <Line dataKey="SpO2" stroke="var(--good)" strokeWidth={2} dot={{ r: 2 }} />
+                      </LineChart>
+                    </ChartCard>
+                    <ChartCard title="PAS e PAD">
+                      <LineChart
+                        data={chartTC6}
+                        margin={{ top: 4, right: 4, left: -18, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Line dataKey="PAS" stroke="var(--good)" strokeWidth={2} dot={{ r: 2 }} />
+                        <Line dataKey="PAD" stroke="var(--bad)" strokeWidth={2} dot={{ r: 2 }} />
+                      </LineChart>
+                    </ChartCard>
+                    <ChartCard title="BORG e PSE">
+                      <BarChart data={chartTC6} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="t" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Bar dataKey="BORG" fill="var(--teal)" radius={[3, 3, 0, 0]} />
+                        <Bar dataKey="PSE" fill="var(--navy)" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    </ChartCard>
+                  </div>
+                )}
+                {(ev.tc6.imagens ?? []).length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    {ev.tc6.imagens.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img.base64}
+                        alt={img.nome}
+                        style={{
+                          maxWidth: 260,
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          marginRight: 8,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <RefBox>
+                  Iwama et al. J Bras Pneumol. 2009;35(2):144-50 | ACSM 2018 | Dourado et al. 2021
+                </RefBox>
+              </div>
+            )
+          })()}
+
+        {/* ── ESPIROMETRIA ─────────────────────────────────────────────── */}
+        {ev.testesAtivos?.includes('espiro') &&
+          ev.espiro?.preBD?.cvf &&
+          (() => {
+            const {
+              preBD,
+              posBD,
+              temPosBD,
+              classificacao,
+              achados,
+              equipamento,
+              referencia,
+              imagens,
+            } = ev.espiro
+            const cvfPct =
+              preBD.cvf && preBD.cvfPred ? Math.round((preBD.cvf / preBD.cvfPred) * 100) : null
+            const vef1Pct =
+              preBD.vef1 && preBD.vef1Pred ? Math.round((preBD.vef1 / preBD.vef1Pred) * 100) : null
+            return (
+              <div className="rep-block no-break rep-page-break">
+                <RepH>Espirometria Forçada</RepH>
+                <p style={{ lineHeight: 1.65, marginBottom: 12 }}>
+                  Exame realizado{equipamento ? ` em ${equipamento}` : ''}, em condições controladas
+                  de temperatura e umidade, segundo recomendações da ATS/ERS, com valores calculados
+                  para a população brasileira segundo {referencia}.
+                </p>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Parâmetro</th>
+                        <th>Valor pré-BD</th>
+                        <th>% Predito</th>
+                        <th>Predito</th>
+                        {temPosBD && (
+                          <>
+                            <th>Valor pós-BD</th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ['CVF (L)', preBD.cvf, cvfPct, preBD.cvfPred, posBD?.cvf],
+                        ['VEF₁ (L)', preBD.vef1, vef1Pct, preBD.vef1Pred, posBD?.vef1],
+                        [
+                          'VEF₁/CVF (%)',
+                          preBD.rel,
+                          preBD.rel && preBD.relPred
+                            ? Math.round((preBD.rel / preBD.relPred) * 100)
+                            : null,
+                          preBD.relPred,
+                          posBD?.rel,
+                        ],
+                      ].map(([name, obt, pctV, pred, pos]) => (
+                        <tr key={name}>
+                          <td style={{ fontWeight: 600 }}>{name}</td>
+                          <td>{obt || '—'}</td>
+                          <td>
+                            {pctV != null ? (
+                              <Tag tone={pctV >= 80 ? 'good' : 'bad'}>{pctV}%</Tag>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>{pred || '—'}</td>
+                          {temPosBD && <td>{pos || '—'}</td>}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {(classificacao || achados) && (
+                  <div style={{ marginTop: 10 }}>
+                    {classificacao && (
+                      <p style={{ fontWeight: 600, marginBottom: 4 }}>Achados: {classificacao}</p>
+                    )}
+                    {achados && <p style={{ lineHeight: 1.55 }}>{achados}</p>}
+                  </div>
+                )}
+                {(imagens ?? []).length > 0 && (
+                  <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {imagens.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img.base64}
+                        alt={img.nome}
+                        style={{
+                          maxWidth: 280,
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <RefBox>
+                  Pereira CAC et al. J Bras Pneumol. 2007;33(4):397-406 | ATS/ERS Task Force, 2005
+                </RefBox>
+              </div>
+            )
+          })()}
+
+        {/* ── DINAMOMETRIA BILATERAL ───────────────────────────────────── */}
+        {ev.testesAtivos?.includes('dinamo') &&
+          (ev.dinamo?.quadD || ev.dinamo?.bicD) &&
+          (() => {
+            const qD = num(ev.dinamo.quadD),
+              qE = num(ev.dinamo.quadE)
+            const bD = num(ev.dinamo.bicD),
+              bE = num(ev.dinamo.bicE)
+            const pQ = r1(predQuadriceps(idade, sexo))
+            const pB = r1(predBiceps(idade, sexo))
+            const assQ = assimetria(qD, qE)
+            const assB = assimetria(bD, bE)
+            return (
+              <div className="rep-block no-break rep-page-break">
+                <RepH>Dinamometria Bilateral — Quadríceps e Bíceps</RepH>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Músculo</th>
+                        <th>D (kgf)</th>
+                        <th>E (kgf)</th>
+                        <th>Predito</th>
+                        <th>% D</th>
+                        <th>% E</th>
+                        <th>Assimetria</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        [`Quadríceps\n(extensão joelho)`, qD, qE, pQ, assQ],
+                        [`Bíceps\n(flexão cotovelo)`, bD, bE, pB, assB],
+                      ].map(([name, d, e, pred, ass]) => (
+                        <tr key={name}>
+                          <td style={{ fontWeight: 600, fontSize: 12 }}>
+                            {name.replace('\n', ' ')}
+                          </td>
+                          <td>{d || '—'}</td>
+                          <td>{e || '—'}</td>
+                          <td>{pred || '—'}</td>
+                          <td>
+                            {d && pred ? (
+                              <Tag tone={d / pred >= 0.8 ? 'good' : 'bad'}>
+                                {Math.round((d / pred) * 100)}%
+                              </Tag>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            {e && pred ? (
+                              <Tag tone={e / pred >= 0.8 ? 'good' : 'bad'}>
+                                {Math.round((e / pred) * 100)}%
+                              </Tag>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            {ass != null ? (
+                              <Tag tone={ass <= 10 ? 'good' : ass <= 20 ? 'warn' : 'bad'}>
+                                {ass}%
+                              </Tag>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {(assQ > 20 || assB > 20) && (
+                  <p style={{ marginTop: 8, lineHeight: 1.6, fontSize: 13.5 }}>
+                    {assQ > 20
+                      ? `Assimetria importante de quadríceps (${assQ}%), estando o lado ${qD < qE ? 'D' : 'E'} abaixo do esperado. `
+                      : ''}
+                    {assB > 20
+                      ? `Assimetria de bíceps (${assB}%), com lado ${bD < bE ? 'D' : 'E'} reduzido. `
+                      : ''}
+                  </p>
+                )}
+                <RefBox>
+                  Meldrum SJ et al. Physiol Meas. 2007 — predito calculado por sexo e idade
+                </RefBox>
+              </div>
+            )
+          })()}
 
         {/* ── COMPARATIVO ─────────────────────────────────────────────── */}
         {prev && (
-          <div className="rep-block no-break">
+          <div className="rep-block no-break rep-page-break">
             <RepH>Evolução — comparativo com {fmtDate(prev.data)}</RepH>
 
             {/* Seletor de data — só na tela */}
             {anteriores.length > 1 && (
               <div className="no-print flex-center gap-8" style={{ marginBottom: 12 }}>
-                <span className="lbl" style={{ marginBottom: 0 }}>Comparar com:</span>
-                <select className="inp" style={{ maxWidth: 200 }}
+                <span className="lbl" style={{ marginBottom: 0 }}>
+                  Comparar com:
+                </span>
+                <select
+                  className="inp"
+                  style={{ maxWidth: 200 }}
                   value={prev.id}
-                  onChange={e => {
-                    setPrev(anteriores.find(a => a.id === e.target.value))
-                    setComparativoIA('')
-                  }}>
-                  {anteriores.map(a => (
-                    <option key={a.id} value={a.id}>{fmtDate(a.data)}</option>
+                  onChange={(e) => {
+                    setPrev(anteriores.find((a) => a.id === e.target.value))
+                    // limpa só a exibição em tela; o texto salvo no Firestore só muda
+                    // quando o usuário gerar um novo comparativo ou editar manualmente
+                    setEv((cur) => ({ ...cur, comparativoIA: '' }))
+                  }}
+                >
+                  {anteriores.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {fmtDate(a.data)}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -823,245 +1520,108 @@ _Respirar Fisioterapeutas_
                 ['Bíceps (kgf)', calc.bic, cp.bic, 'high'],
                 ['TSL 5 rep (s)', sts5, cp.sts5, 'low'],
                 ['TSL 1 min (rep)', sts1, cp.sts1, 'high'],
-              ].filter(r => r[1] != null && r[2] != null)
+              ].filter((r) => r[1] != null && r[2] != null)
               if (!rows.length) return <p className="text-sub">Sem variáveis comparáveis.</p>
               return (
-                <table className="rep-table">
-                  <thead><tr><th>Variável</th><th>{fmtDate(prev.data).slice(0,5)}</th><th>{fmtDate(ev.data).slice(0,5)}</th><th>Δ</th></tr></thead>
-                  <tbody>
-                    {rows.map(([name,c,p,dir],i) => {
-                      const d = r1(c - p)
-                      const better = dir === 'high' ? d > 0 : d < 0
-                      return (
-                        <tr key={i}>
-                          <td style={{ fontWeight:600 }}>{name}</td>
-                          <td>{p}</td><td>{c}</td>
-                          <td><Tag tone={d === 0 ? 'neutral' : better ? 'good' : 'warn'}>{d > 0 ? '+' : ''}{d}</Tag></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                <div className="rep-table-wrap">
+                  <table className="rep-table">
+                    <thead>
+                      <tr>
+                        <th>Variável</th>
+                        <th>{fmtDate(prev.data).slice(0, 5)}</th>
+                        <th>{fmtDate(ev.data).slice(0, 5)}</th>
+                        <th>Δ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(([name, c, p, dir], i) => {
+                        const d = r1(c - p)
+                        const better = dir === 'high' ? d > 0 : d < 0
+                        return (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 600 }}>{name}</td>
+                            <td>{p}</td>
+                            <td>{c}</td>
+                            <td>
+                              <Tag tone={d === 0 ? 'neutral' : better ? 'good' : 'warn'}>
+                                {d > 0 ? '+' : ''}
+                                {d}
+                              </Tag>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )
             })()}
 
             {/* Comparativo IA */}
-            <div className="no-print" style={{ marginTop:12 }}>
+            <div className="no-print" style={{ marginTop: 12 }}>
               <button className="btn-ghost" onClick={handleGerarComparativo} disabled={gerandoComp}>
-                <Sparkles size={15} /> {gerandoComp ? 'Gerando...' : 'Gerar análise comparativa com IA'}
+                <Sparkles size={15} />{' '}
+                {gerandoComp ? 'Gerando...' : 'Gerar análise comparativa com IA'}
               </button>
             </div>
-            {comparativoIA && (
-              <div style={{ marginTop:10, padding:12, background:'var(--teal-light)', borderRadius:10, lineHeight:1.65, fontSize:13.5 }}>
+            {ev.comparativoIA && (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 12,
+                  background: 'var(--teal-light)',
+                  borderRadius: 10,
+                  lineHeight: 1.65,
+                  fontSize: 13.5,
+                }}
+              >
                 <EditableField
-                  value={comparativoIA}
+                  value={ev.comparativoIA}
                   rows={4}
-                  onChange={texto => setComparativoIA(texto)}
+                  onChange={async (texto) => {
+                    const updated = { ...ev, comparativoIA: texto }
+                    setEv(updated)
+                    await salvarAvaliacao(pid, updated)
+                  }}
                 />
               </div>
             )}
           </div>
         )}
 
-        {/* ── TC6 ─────────────────────────────────────────────────────── */}
-        {ev.testesAtivos?.includes('tc6') && ev.tc6?.distancia && (() => {
-          const dist = num(ev.tc6.distancia)
-          const predDist = num(ev.tc6.preditoDist) ?? r1(predTC6(idade, sexo))
-          const pctDist = pct(dist, predDist)
-          const vo2 = vo2TC6(dist, idade, peso, altura)
-          const mets = vo2ToMETs(vo2)
-          const fcMax6 = num(ev.tc6.fcMax)
-          const fcRec1 = num(ev.tc6.fcRec1)
-          const fcRec3 = num(ev.tc6.fcRec3)
-          const d1 = fcMax6 && fcRec1 ? fcMax6 - fcRec1 : null
-          const d3 = fcMax6 && fcRec3 ? fcMax6 - fcRec3 : null
-          const chartTC6 = (ev.tc6.serie??[]).map(s => ({
-            t:s.t, FC:num(s.fc), SpO2:num(s.spo2), PAS:num(s.pas), PAD:num(s.pad), BORG:num(s.borg), PSE:num(s.pse),
-          }))
-          const hasChart = chartTC6.some(d => d.FC != null)
-          return (
-            <div className="rep-block">
-              <RepH>Teste de Caminhada de 6 min (TC6)</RepH>
-              <p style={{ lineHeight:1.65, marginBottom:12 }}>
-                Teste realizado conforme recomendações da ATS/ERS em corredor plano adaptado para 20 m.
-              </p>
-              <p style={{ fontWeight:700, marginBottom:8 }}>Resultados:</p>
-              <ul style={{ paddingLeft:20, lineHeight:2.2, fontSize:13.5 }}>
-                <li>Distância percorrida: <b>{dist} m</b> ({pctDist}% do predito de {predDist} m){classTC6Pct(pctDist) ? ` — aptidão cardiorrespiratória "${classTC6Pct(pctDist)}"` : ''}.</li>
-                {num(ev.tc6.nVoltas) && num(ev.tc6.distVolta) && (
-                  <li>Percurso de <b>{num(ev.tc6.distVolta)} m por volta</b>, totalizando <b>{num(ev.tc6.nVoltas)} volta(s)</b> completadas.</li>
-                )}
-                {vo2 && <li>VO₂pico estimado (ACSM 2018): <b>{vo2} mℓ·kg⁻¹·min⁻¹</b> ({mets} METs).</li>}
-                {ev.tc6.nParadas ? <li>Realizou {ev.tc6.nParadas} parada(s) durante o teste.</li> : <li>Realizou o teste sem paradas.</li>}
-                {ev.tc6.obs && <li>{ev.tc6.obs}</li>}
-              </ul>
-              {fcMax6 && (
-                <table className="rep-table" style={{ marginTop:12 }}>
-                  <thead><tr><th>Data</th><th>FC máx</th><th>FC rec. 1 min</th><th>FC rec. 3 min</th></tr></thead>
-                  <tbody>
-                    <tr>
-                      <td>{fmtDate(ev.data)}</td>
-                      <td>{fcMax6} bpm</td>
-                      <td>{fcRec1 ? `${fcRec1} (Δ ${d1}) bpm` : '—'}</td>
-                      <td>{fcRec3 ? `${fcRec3} (Δ ${d3}) bpm` : '—'}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              )}
-              {hasChart && (
-                <div className="charts-grid no-break" style={{ marginTop:14 }}>
-                  <ChartCard title="FC e SpO₂">
-                    <LineChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
-                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                      <Line dataKey="FC" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
-                      <Line dataKey="SpO2" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
-                    </LineChart>
-                  </ChartCard>
-                  <ChartCard title="PAS e PAD">
-                    <LineChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
-                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                      <Line dataKey="PAS" stroke="var(--good)" strokeWidth={2} dot={{ r:2 }} />
-                      <Line dataKey="PAD" stroke="var(--bad)" strokeWidth={2} dot={{ r:2 }} />
-                    </LineChart>
-                  </ChartCard>
-                  <ChartCard title="BORG e PSE">
-                    <BarChart data={chartTC6} margin={{ top:4, right:4, left:-18, bottom:0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="t" tick={{ fontSize:10 }} /><YAxis tick={{ fontSize:10 }} />
-                      <Tooltip /><Legend wrapperStyle={{ fontSize:10 }} />
-                      <Bar dataKey="BORG" fill="var(--teal)" radius={[3,3,0,0]} />
-                      <Bar dataKey="PSE" fill="var(--navy)" radius={[3,3,0,0]} />
-                    </BarChart>
-                  </ChartCard>
-                </div>
-              )}
-              {(ev.tc6.imagens??[]).length > 0 && (
-                <div style={{ marginTop:12 }}>
-                  {ev.tc6.imagens.map((img,i)=><img key={i} src={img.base64} alt={img.nome} style={{ maxWidth:260, borderRadius:8, border:'1px solid var(--border)', marginRight:8 }}/>)}
-                </div>
-              )}
-              <RefBox>Iwama et al. J Bras Pneumol. 2009;35(2):144-50 | ACSM 2018 | Dourado et al. 2021</RefBox>
-            </div>
-          )
-        })()}
-
-        {/* ── ESPIROMETRIA ─────────────────────────────────────────────── */}
-        {ev.testesAtivos?.includes('espiro') && ev.espiro?.preBD?.cvf && (() => {
-          const { preBD, posBD, temPosBD, classificacao, achados, equipamento, referencia, imagens } = ev.espiro
-          const cvfPct = preBD.cvf && preBD.cvfPred ? Math.round(preBD.cvf/preBD.cvfPred*100) : null
-          const vef1Pct = preBD.vef1 && preBD.vef1Pred ? Math.round(preBD.vef1/preBD.vef1Pred*100) : null
-          return (
-            <div className="rep-block no-break">
-              <RepH>Espirometria Forçada</RepH>
-              <p style={{ lineHeight:1.65, marginBottom:12 }}>
-                Exame realizado{equipamento ? ` em ${equipamento}` : ''}, em condições controladas de temperatura e umidade, segundo recomendações da ATS/ERS, com valores calculados para a população brasileira segundo {referencia}.
-              </p>
+        {/* ── PRESCRIÇÃO DE EXERCÍCIOS ───────────────────────────────── */}
+        {(paciente.prescricao ?? []).length > 0 && (
+          <div className="rep-block no-break rep-page-break">
+            <RepH>Prescrição de Exercícios</RepH>
+            <div className="rep-table-wrap">
               <table className="rep-table">
                 <thead>
                   <tr>
-                    <th>Parâmetro</th>
-                    <th>Valor pré-BD</th><th>% Predito</th><th>Predito</th>
-                    {temPosBD && <><th>Valor pós-BD</th></>}
+                    <th>Exercício</th>
+                    <th>Séries</th>
+                    <th>Rep. / Duração</th>
+                    <th>Frequência</th>
+                    <th>Observações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    ['CVF (L)', preBD.cvf, cvfPct, preBD.cvfPred, posBD?.cvf],
-                    ['VEF₁ (L)', preBD.vef1, vef1Pct, preBD.vef1Pred, posBD?.vef1],
-                    ['VEF₁/CVF (%)', preBD.rel, preBD.rel&&preBD.relPred?Math.round(preBD.rel/preBD.relPred*100):null, preBD.relPred, posBD?.rel],
-                  ].map(([name,obt,pctV,pred,pos])=>(
-                    <tr key={name}>
-                      <td style={{ fontWeight:600 }}>{name}</td>
-                      <td>{obt||'—'}</td>
-                      <td>{pctV!=null ? <Tag tone={pctV>=80?'good':'bad'}>{pctV}%</Tag> : '—'}</td>
-                      <td>{pred||'—'}</td>
-                      {temPosBD && <td>{pos||'—'}</td>}
+                  {paciente.prescricao.map((item, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>
+                        {item.nome}
+                        <div className="text-sub" style={{ fontSize: 11, fontWeight: 400 }}>
+                          {item.categoria}
+                        </div>
+                      </td>
+                      <td>{item.series || '—'}</td>
+                      <td>{item.repeticoes || '—'}</td>
+                      <td>{item.frequencia || '—'}</td>
+                      <td style={{ fontSize: 12.5 }}>{item.obs || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {(classificacao||achados) && (
-                <div style={{ marginTop:10 }}>
-                  {classificacao && <p style={{ fontWeight:600, marginBottom:4 }}>Achados: {classificacao}</p>}
-                  {achados && <p style={{ lineHeight:1.55 }}>{achados}</p>}
-                </div>
-              )}
-              {(imagens??[]).length > 0 && (
-                <div style={{ marginTop:12, display:'flex', gap:12, flexWrap:'wrap' }}>
-                  {imagens.map((img,i)=><img key={i} src={img.base64} alt={img.nome} style={{ maxWidth:280, borderRadius:8, border:'1px solid var(--border)' }}/>)}
-                </div>
-              )}
-              <RefBox>Pereira CAC et al. J Bras Pneumol. 2007;33(4):397-406 | ATS/ERS Task Force, 2005</RefBox>
             </div>
-          )
-        })()}
-
-        {/* ── DINAMOMETRIA BILATERAL ───────────────────────────────────── */}
-        {ev.testesAtivos?.includes('dinamo') && (ev.dinamo?.quadD || ev.dinamo?.bicD) && (() => {
-          const qD = num(ev.dinamo.quadD), qE = num(ev.dinamo.quadE)
-          const bD = num(ev.dinamo.bicD),  bE = num(ev.dinamo.bicE)
-          const pQ = r1(predQuadriceps(idade, sexo))
-          const pB = r1(predBiceps(idade, sexo))
-          const assQ = assimetria(qD, qE)
-          const assB = assimetria(bD, bE)
-          return (
-            <div className="rep-block no-break">
-              <RepH>Dinamometria Bilateral — Quadríceps e Bíceps</RepH>
-              <table className="rep-table">
-                <thead>
-                  <tr><th>Músculo</th><th>D (kgf)</th><th>E (kgf)</th><th>Predito</th><th>% D</th><th>% E</th><th>Assimetria</th></tr>
-                </thead>
-                <tbody>
-                  {[[`Quadríceps\n(extensão joelho)`, qD, qE, pQ, assQ],
-                    [`Bíceps\n(flexão cotovelo)`,     bD, bE, pB, assB]].map(([name,d,e,pred,ass])=>(
-                    <tr key={name}>
-                      <td style={{ fontWeight:600, fontSize:12 }}>{name.replace('\n',' ')}</td>
-                      <td>{d||'—'}</td><td>{e||'—'}</td><td>{pred||'—'}</td>
-                      <td>{d&&pred?<Tag tone={d/pred>=0.8?'good':'bad'}>{Math.round(d/pred*100)}%</Tag>:'—'}</td>
-                      <td>{e&&pred?<Tag tone={e/pred>=0.8?'good':'bad'}>{Math.round(e/pred*100)}%</Tag>:'—'}</td>
-                      <td>{ass!=null?<Tag tone={ass<=10?'good':ass<=20?'warn':'bad'}>{ass}%</Tag>:'—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {(assQ>20||assB>20) && (
-                <p style={{ marginTop:8, lineHeight:1.6, fontSize:13.5 }}>
-                  {assQ>20 ? `Assimetria importante de quadríceps (${assQ}%), estando o lado ${qD<qE?'D':'E'} abaixo do esperado. ` : ''}
-                  {assB>20 ? `Assimetria de bíceps (${assB}%), com lado ${bD<bE?'D':'E'} reduzido. ` : ''}
-                </p>
-              )}
-              <RefBox>Meldrum SJ et al. Physiol Meas. 2007 — predito calculado por sexo e idade</RefBox>
-            </div>
-          )
-        })()}
-
-        {/* ── PRESCRIÇÃO DE EXERCÍCIOS ───────────────────────────────── */}
-        {(paciente.prescricao ?? []).length > 0 && (
-          <div className="rep-block no-break">
-            <RepH>Prescrição de Exercícios</RepH>
-            <table className="rep-table">
-              <thead>
-                <tr><th>Exercício</th><th>Séries</th><th>Rep. / Duração</th><th>Frequência</th><th>Observações</th></tr>
-              </thead>
-              <tbody>
-                {paciente.prescricao.map((item, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>
-                      {item.nome}
-                      <div className="text-sub" style={{ fontSize: 11, fontWeight: 400 }}>{item.categoria}</div>
-                    </td>
-                    <td>{item.series || '—'}</td>
-                    <td>{item.repeticoes || '—'}</td>
-                    <td>{item.frequencia || '—'}</td>
-                    <td style={{ fontSize: 12.5 }}>{item.obs || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
 
@@ -1070,9 +1630,10 @@ _Respirar Fisioterapeutas_
           <RepH>Conclusão</RepH>
 
           {/* Botão IA */}
-          <div style={{ marginBottom:14 }}>
+          <div style={{ marginBottom: 14 }}>
             <button className="btn-ghost no-print" onClick={handleGerarIA} disabled={gerando}>
-              <Sparkles size={15} /> {gerando ? 'Gerando conclusão com IA...' : 'Gerar conclusão com IA'}
+              <Sparkles size={15} />{' '}
+              {gerando ? 'Gerando conclusão com IA...' : 'Gerar conclusão com IA'}
             </button>
           </div>
 
@@ -1092,37 +1653,53 @@ _Respirar Fisioterapeutas_
         {(ev.cbdfCodigos ?? []).length > 0 && (
           <div className="rep-block no-break">
             <RepH>Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)</RepH>
-            <table className="rep-table">
-              <thead><tr><th>Código</th><th>Descrição</th></tr></thead>
-              <tbody>
-                {ev.cbdfCodigos.map(codigo => {
-                  const item = CBDF_CODIGOS.find(c => c.codigo === codigo)
-                  return (
-                    <tr key={codigo}>
-                      <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{codigo}</td>
-                      <td>{item?.descricao ?? '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            <RefBox>COFFITO, Resolução nº 555/2022 (CBDF) — consulte a tabela oficial e atualizada em cbdf.coffito.gov.br</RefBox>
+            <div className="rep-table-wrap">
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Descrição</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ev.cbdfCodigos.map((codigo) => {
+                    const item = CBDF_CODIGOS.find((c) => c.codigo === codigo)
+                    return (
+                      <tr key={codigo}>
+                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{codigo}</td>
+                        <td>{item?.descricao ?? '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <RefBox>
+              COFFITO, Resolução nº 555/2022 (CBDF) — consulte a tabela oficial e atualizada em
+              cbdf.coffito.gov.br
+            </RefBox>
           </div>
         )}
 
         {/* ASSINATURA */}
         <div className="rep-sign">
           {ev.profissional?.includes('Ravel') && (
-            <img src={ASSINATURA_RAVEL} alt="Assinatura"
-              style={{ height:38, marginBottom:4, display:'block' }} />
+            <img
+              src={ASSINATURA_RAVEL}
+              alt="Assinatura"
+              style={{ height: 38, marginBottom: 4, display: 'block' }}
+            />
           )}
-          <div style={{ fontWeight:600, color:'var(--navy)', fontSize:13 }}>{ev.profissional}</div>
-          <div className="text-sub" style={{ marginTop:4 }}>
-            Av. Hermes da Fonseca, 390 — Lj 05 · Petrópolis, Natal/RN · (84) 9 9168-8285 · @respirarfisioterapeutas
+          <div style={{ fontWeight: 600, color: 'var(--navy)', fontSize: 13 }}>
+            {ev.profissional}
+          </div>
+          <div className="text-sub" style={{ marginTop: 4 }}>
+            Av. Hermes da Fonseca, 390 — Lj 05 · Petrópolis, Natal/RN · (84) 9 9168-8285 ·
+            @respirarfisioterapeutas
           </div>
         </div>
-
-      </div>{/* /report */}
+      </div>
+      {/* /report */}
     </>
   )
 }

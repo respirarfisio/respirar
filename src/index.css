@@ -37,11 +37,17 @@ h2 { font-size: 1.1rem; font-weight: 700; color: var(--navy); }
 h3 { font-size: 0.95rem; font-weight: 700; color: var(--navy-soft); }
 p  { color: var(--ink); }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 /* ── Layout ────────────────────────────────────────────────────────────── */
 .shell {
   max-width: 900px;
   margin: 0 auto;
   padding: 0 16px 64px;
+  overflow-x: hidden;
 }
 
 /* ── Topbar ────────────────────────────────────────────────────────────── */
@@ -106,6 +112,16 @@ p  { color: var(--ink); }
   .cell-mini { width: 38px; }
   .rep-id { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr !important; }
+
+  /* Relatório — evita conteúdo cortado nas laterais em telas estreitas */
+  .report { padding: 16px; font-size: 12.5px; }
+  .rep-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .rep-table { min-width: 560px; }
 }
 
 /* ── Cartão ────────────────────────────────────────────────────────────── */
@@ -244,6 +260,9 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
   border-radius: 14px;
   padding: 28px;
   font-size: 13.5px;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 .rep-head {
   display: flex; align-items: center; gap: 12px;
@@ -292,6 +311,28 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
 .chart-card-title { font-size: 11.5px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
 
 .rep-sign { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* ── Separação de seções/testes em folhas distintas ───────────────────── */
+/* Na tela: simula o fim de uma folha (linha pontilhada + respiro maior). */
+/* Na impressão/PDF: força quebra de página real antes da seção. */
+.rep-page-break {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 2px dashed var(--border);
+  position: relative;
+}
+.rep-page-break::before {
+  content: "· · ·";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  padding: 0 10px;
+  color: var(--sub);
+  font-size: 12px;
+  letter-spacing: 4px;
+}
 
 /* ── Impressão ─────────────────────────────────────────────────────────── */
 @media print {
@@ -360,6 +401,16 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+
+  /* Cada seção/teste marcado começa em uma folha nova */
+  .rep-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+  }
+  .rep-page-break::before { content: none !important; }
 
   .rep-h,
   h1, h2, h3 {

@@ -92,6 +92,7 @@ export function avaliacaoVazia() {
 
     conclusao: '',
     conclusaoIA: '',
+    comparativoIA: '', // análise comparativa de evolução gerada/editada, persistida no Firestore
     cbdfCodigos: [], // códigos CBDF selecionados manualmente para o relatório
     profissional: 'Dr. Ravel Marinho — CREFITO 1 nº 216.212 F',
   }
