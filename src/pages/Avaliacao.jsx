@@ -3,17 +3,18 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Activity, Wind, Hand, FileText, Stethoscope,
-  Heart, ClipboardList, Image, X, Footprints, Lungs,
+  Heart, ClipboardList, Image, X, Footprints, Check,
 } from 'lucide-react'
 import { getPaciente, getAvaliacao, salvarAvaliacao } from '../utils/db'
 import {
   predPImax, predPEmax, predGrip, predStepReps,
   predSTS5, predSTS1, predSindex, calcIMC, fcMaxTanaka,
   predTC6, predQuadriceps, predBiceps, predCVF, predVEF1,
-  num, r1,
+  sppbTotal, num, r1,
 } from '../calc/referencias'
 import { avaliacaoVazia, SERIE_DEGRAU, SERIE_TC6, TESTES_DISPONIVEIS, fmtDate } from '../utils/avaliacao'
 import { SixMinuteTest, Stopwatch, RepCounterTimer, ImportarPolarFC } from '../components/TestTimers'
+import { CBDF_CODIGOS, CBDF_LINK } from '../utils/cbdf'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Field({ label, hint, children }) {
@@ -320,6 +321,22 @@ export default function Avaliacao() {
       {/* ── TC6 ───────────────────────────────────────────────────────── */}
       {ativo('tc6') && (
         <Section icon={Footprints} title="Teste de Caminhada de 6 min (TC6)">
+          <div className="grid-3" style={{ marginBottom:4 }}>
+            <Field label="Nº de voltas"><input className="inp" type="number" value={ev.tc6.nVoltas} onChange={e=>set('tc6.nVoltas',e.target.value)}/></Field>
+            <Field label="Distância da volta (m)"><input className="inp" type="number" value={ev.tc6.distVolta} onChange={e=>set('tc6.distVolta',e.target.value)}/></Field>
+            <Field label="Distância calculada (m)" hint="voltas × distância da volta">
+              <input className="inp" readOnly
+                value={(num(ev.tc6.nVoltas) && num(ev.tc6.distVolta)) ? r1(num(ev.tc6.nVoltas) * num(ev.tc6.distVolta)) : ''}
+                style={{ background:'var(--bg)' }} />
+            </Field>
+          </div>
+          {(num(ev.tc6.nVoltas) && num(ev.tc6.distVolta)) && (
+            <div className="flex gap-10" style={{ marginBottom:10 }}>
+              <button className="btn-soft" onClick={() => set('tc6.distancia', String(r1(num(ev.tc6.nVoltas) * num(ev.tc6.distVolta))))}>
+                <Check size={13} /> Usar {r1(num(ev.tc6.nVoltas) * num(ev.tc6.distVolta))} m como distância percorrida
+              </button>
+            </div>
+          )}
           <div className="grid-3">
             <Field label="Distância percorrida (m)"><input className="inp" type="number" value={ev.tc6.distancia} onChange={e=>set('tc6.distancia',e.target.value)}/></Field>
             <Field label="Predito (m)" hint={`auto ${pTC6??''} m`}>
@@ -540,26 +557,100 @@ export default function Avaliacao() {
 
       {/* ── SPPB ──────────────────────────────────────────────────────── */}
       {ativo('sppb') && (
-        <Section icon={ClipboardList} title="SPPB">
+        <Section icon={ClipboardList} title="SPPB — Short Physical Performance Battery">
           <div className="grid-2">
-            {[
-              ['Velocidade marcha 4m (s)','sppb.velMarcha4m'],
-              ['Ponto SPPB velocidade','sppb.pontoVel'],
-              ['Equilíbrio pés juntos (s)','sppb.peJuntos'],
-              ['Ponto pés juntos','sppb.pontoPeJuntos'],
-              ['Equilíbrio um pé à frente (s)','sppb.umPeFrente'],
-              ['Ponto um pé','sppb.pontoUmPe'],
-              ['Equilíbrio hálux + calcanhar (s)','sppb.haluxCalcanhar'],
-              ['Ponto hálux','sppb.pontoHalux'],
-              ['Ponto TSL 5x','sppb.tsl5ponto'],
-            ].map(([lbl,path])=>(
-              <Field key={path} label={lbl}>
-                <input className="inp" type="number" value={path.split('.').reduce((o,k)=>o?.[k],ev)??''} onChange={e=>set(path,e.target.value)}/>
-              </Field>
-            ))}
+            <Field label="Velocidade marcha 4m (s)">
+              <input className="inp" type="number" step="0.1" value={ev.sppb.velMarcha4m} onChange={e=>set('sppb.velMarcha4m',e.target.value)}/>
+            </Field>
+            <Field label="Ponto — Velocidade de marcha (0–4)">
+              <select className="inp" value={ev.sppb.pontoVel} onChange={e=>set('sppb.pontoVel',e.target.value)}>
+                <option value="">Selecione</option>
+                <option value="0">0 — Incapaz de realizar</option>
+                <option value="1">1 — ≥ 8,70 s</option>
+                <option value="2">2 — 6,21 a 8,69 s</option>
+                <option value="3">3 — 4,82 a 6,20 s</option>
+                <option value="4">4 — ≤ 4,81 s</option>
+              </select>
+            </Field>
+
+            <Field label="Equilíbrio pés juntos (s)">
+              <input className="inp" type="number" step="0.1" value={ev.sppb.peJuntos} onChange={e=>set('sppb.peJuntos',e.target.value)}/>
+            </Field>
+            <Field label="Equilíbrio um pé à frente (semi-tandem) (s)">
+              <input className="inp" type="number" step="0.1" value={ev.sppb.umPeFrente} onChange={e=>set('sppb.umPeFrente',e.target.value)}/>
+            </Field>
+            <Field label="Equilíbrio hálux + calcanhar (tandem) (s)">
+              <input className="inp" type="number" step="0.1" value={ev.sppb.haluxCalcanhar} onChange={e=>set('sppb.haluxCalcanhar',e.target.value)}/>
+            </Field>
+            <Field label="Ponto — Equilíbrio (0–4)" hint="pés juntos 10s=1pt; semi-tandem 10s + tandem <3s=2pt; tandem 3-9,99s=3pt; tandem ≥10s=4pt">
+              <select className="inp" value={ev.sppb.pontoEquilibrio ?? ''} onChange={e=>set('sppb.pontoEquilibrio',e.target.value)}>
+                <option value="">Selecione</option>
+                <option value="0">0 — Incapaz / não tentou</option>
+                <option value="1">1 — Pés juntos 10s, sem tandem</option>
+                <option value="2">2 — Semi-tandem 10s, tandem &lt;3s</option>
+                <option value="3">3 — Tandem 3 a 9,99s</option>
+                <option value="4">4 — Tandem ≥ 10s</option>
+              </select>
+            </Field>
+
+            <Field label="Ponto — TSL 5 repetições (0–4)" hint="usa o tempo do teste TSL 5 rep já registrado">
+              <select className="inp" value={ev.sppb.tsl5ponto} onChange={e=>set('sppb.tsl5ponto',e.target.value)}>
+                <option value="">Selecione</option>
+                <option value="0">0 — Incapaz de realizar / &gt;60s ou &gt;5 tentativas</option>
+                <option value="1">1 — ≥ 16,7 s</option>
+                <option value="2">2 — 13,7 a 16,69 s</option>
+                <option value="3">3 — 11,2 a 13,69 s</option>
+                <option value="4">4 — ≤ 11,19 s</option>
+              </select>
+            </Field>
           </div>
+
+          {/* Soma automática dos pontos */}
+          {(() => {
+            const { total, class: classe } = sppbTotal({
+              vel: ev.sppb.pontoVel,
+              equilibrio: ev.sppb.pontoEquilibrio,
+              tsl5: ev.sppb.tsl5ponto,
+            })
+            const temAlgumPonto = [ev.sppb.pontoVel, ev.sppb.pontoEquilibrio, ev.sppb.tsl5ponto].some(v => v !== '' && v != null)
+            return temAlgumPonto ? (
+              <div className="flex-center gap-10" style={{ marginTop:14, padding:'10px 14px', background:'var(--teal-light)', borderRadius:10 }}>
+                <span style={{ fontWeight:700, color:'var(--navy)' }}>Pontuação total SPPB: {total} / 12</span>
+                <span className={`tag tag-${total >= 10 ? 'good' : total >= 7 ? 'warn' : 'bad'}`}>{classe}</span>
+              </div>
+            ) : null
+          })()}
+
+          <Ref>Guralnik JM et al. J Gerontol. 1994;49(2):M85-94 — protocolo SPPB (0–4 pontos por subteste, total 0–12)</Ref>
         </Section>
       )}
+
+      {/* ── CBDF — Classificação Brasileira de Diagnósticos Fisioterapêuticos ── */}
+      <Section icon={ClipboardList} title="Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)">
+        <p className="text-sub" style={{ marginBottom: 12, fontSize: 12.5 }}>
+          Selecione os códigos CBDF aplicáveis a este caso. Consulte a tabela completa e oficial em{' '}
+          <a href={CBDF_LINK} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal-dark)' }}>{CBDF_LINK}</a>{' '}
+          antes de confirmar, pois esta é apenas uma lista de referência com os códigos mais comuns.
+        </p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {CBDF_CODIGOS.map(({ codigo, descricao }) => {
+            const marcado = (ev.cbdfCodigos ?? []).includes(codigo)
+            return (
+              <label key={codigo} className="flex-center gap-8"
+                style={{ cursor: 'pointer', fontSize: 13, padding: '8px 12px', background: 'var(--bg)', borderRadius: 10,
+                  border: marcado ? '1.5px solid var(--teal)' : '1.5px solid transparent' }}>
+                <input type="checkbox" checked={marcado}
+                  onChange={() => {
+                    const atuais = ev.cbdfCodigos ?? []
+                    set('cbdfCodigos', marcado ? atuais.filter(c => c !== codigo) : [...atuais, codigo])
+                  }}
+                  style={{ width: 15, height: 15, accentColor: 'var(--teal)', flexShrink: 0 }} />
+                <span><b>{codigo}</b> — {descricao}</span>
+              </label>
+            )
+          })}
+        </div>
+      </Section>
 
       {/* ── CONCLUSÃO ─────────────────────────────────────────────────── */}
       <Section icon={FileText} title="Conclusão e Profissional">

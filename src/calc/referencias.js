@@ -116,8 +116,15 @@ export function classRCQ(rcq, sexo) {
 }
 
 // ── SPPB ──────────────────────────────────────────────────────────────────
+// Soma os 3 subtestes (velocidade de marcha, equilíbrio, TSL 5 rep), cada um de 0 a 4 pontos.
+// Aceita um objeto { vel, equilibrio, tsl5 } ou, por compatibilidade, qualquer mapa de pontos.
 export function sppbTotal(pontos) {
-  const total = Object.values(pontos).reduce((s, v) => s + (num(v) ?? 0), 0)
+  const clamp = (v) => {
+    const n = num(v)
+    if (n == null) return 0
+    return Math.min(4, Math.max(0, n))
+  }
+  const total = Object.values(pontos).reduce((s, v) => s + clamp(v), 0)
   if (total <= 3)  return { total, class: 'Incapacidade grave' }
   if (total <= 6)  return { total, class: 'Incapacidade moderada' }
   if (total <= 9)  return { total, class: 'Incapacidade leve' }

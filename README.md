@@ -131,3 +131,30 @@ src/
 - **React Router 6**
 - **lucide-react** — ícones
 - **gh-pages** — deploy automático
+
+---
+
+## Changelog — atualizações recentes
+
+### ⚠️ Segurança — chave da API Groq
+A chave da API Groq estava escrita diretamente no código-fonte (`src/pages/Relatorio.jsx`), o que a expunha publicamente, já que este é um app que roda no navegador. Isso foi corrigido:
+- A chave agora é lida de uma variável de ambiente (`VITE_GROQ_API_KEY`), configurada em um arquivo `.env` na raiz do projeto (não versionado no Git).
+- Copie `.env.example` para `.env` e preencha com sua chave.
+- **Ação necessária:** revogue a chave antiga no [console.groq.com/keys](https://console.groq.com/keys) e gere uma nova, já que a anterior deve ser considerada comprometida.
+
+### Cadastro de paciente
+Adicionados os campos **CPF**, **telefone para contato** e **endereço completo** (logradouro, número, complemento, bairro, cidade, UF, CEP), com máscaras de digitação para CPF e telefone.
+
+### Termo de Imagem
+Nova página `/paciente/:pid/termo-imagem`, com o mesmo sistema de assinatura digital no celular/tablet já usado no Termo de Consentimento, usando o texto do modelo de autorização de uso de imagens (ANEXO I) com a identidade da Respirar Fisioterapeutas e os dados do paciente pré-preenchidos a partir do cadastro.
+
+### TC6 — Teste de Caminhada de 6 min
+Adicionados os campos **nº de voltas** e **distância da volta (m)**, com cálculo automático da distância total percorrida (voltas × distância da volta), exibido tanto no formulário quanto no relatório.
+
+### SPPB
+- A soma automática dos pontos (0–12) e a classificação (Incapacidade grave/moderada/leve/Normal) — que já existia como função no código mas nunca era usada — agora aparece no formulário de avaliação em tempo real.
+- A seção SPPB, que não existia no relatório, foi adicionada por completo (tabela de subtestes, pontuação total e classificação).
+- Os campos de pontuação agora usam seletores com as faixas oficiais do protocolo (Guralnik et al., 1994) em vez de números livres.
+
+### Códigos CBDF (Classificação Brasileira de Diagnósticos Fisioterapêuticos)
+Adicionada uma seção no formulário de avaliação para selecionar manualmente os códigos CBDF aplicáveis ao caso, que aparecem no final do relatório. Não existe API pública do COFFITO para consulta/integração automática de códigos — a tabela em `src/utils/cbdf.js` é uma referência com os códigos mais comuns em avaliação cardiorrespiratória/funcional. Sempre confirme o código mais adequado em [cbdf.coffito.gov.br](https://cbdf.coffito.gov.br/).

@@ -42,7 +42,8 @@ export function avaliacaoVazia() {
 
     // TC6 — Teste de Caminhada 6 min
     tc6: {
-      distancia:'', preditoDist:'',          // metros
+      distancia:'', preditoDist:'',          // metros (calculado automaticamente a partir de voltas × distância da volta, ou digitado manualmente)
+      nVoltas:'', distVolta:'',               // nº de voltas no percurso e distância (m) de cada volta
       fcIni:'', fcFim:'', fcMax:'', fcRec1:'', fcRec3:'',
       spo2Ini:'', spo2Fim:'',
       pasIni:'', pasFim:'', padIni:'', padFim:'',
@@ -81,17 +82,17 @@ export function avaliacaoVazia() {
     sts5: { tempo:'', predito:'' },
     sts1: { reps:'',  predito:'' },
 
-    // SPPB
+    // SPPB — Short Physical Performance Battery (Guralnik et al., 1994)
+    // Pontuação: 3 subtestes de 0–4 pontos cada (velocidade de marcha, equilíbrio, TSL 5 rep) — total 0–12
     sppb: {
       velMarcha4m:'', pontoVel:'',
-      peJuntos:'', pontoPeJuntos:'',
-      umPeFrente:'', pontoUmPe:'',
-      haluxCalcanhar:'', pontoHalux:'',
+      peJuntos:'', umPeFrente:'', haluxCalcanhar:'', pontoEquilibrio:'',
       tsl5ponto:'',
     },
 
     conclusao: '',
     conclusaoIA: '',
+    cbdfCodigos: [], // códigos CBDF selecionados manualmente para o relatório
     profissional: 'Dr. Ravel Marinho — CREFITO 1 nº 216.212 F',
   }
 }

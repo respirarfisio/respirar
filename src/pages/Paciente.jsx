@@ -17,12 +17,35 @@ import {
 import { fmtDate } from '../utils/avaliacao'
 
 // ── Formulário do paciente ─────────────────────────────────────────────────
+// Formata CPF progressivamente: 000.000.000-00
+function formatCPF(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`
+}
+
+// Formata telefone progressivamente: (00) 00000-0000 / (00) 0000-0000
+function formatTelefone(v) {
+  const d = (v || '').replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 2) return d.length ? `(${d}` : ''
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+}
+
 function PacienteForm({ paciente, onSaved, onCancel }) {
   const [form, setForm] = useState(
-    paciente ?? { nome: '', sexo: 'M', idade: '', peso: '', altura: '', medico: '', historico: '' }
+    paciente ?? {
+      nome: '', sexo: 'M', idade: '', peso: '', altura: '', medico: '', historico: '',
+      cpf: '', telefone: '',
+      endereco: { logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', cep: '' },
+    }
   )
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const setEnd = (k, v) => setForm(f => ({ ...f, endereco: { ...(f.endereco ?? {}), [k]: v } }))
   const ok = form.nome.trim() && form.idade
 
   async function handleSave() {
@@ -32,6 +55,8 @@ function PacienteForm({ paciente, onSaved, onCancel }) {
       onSaved(id)
     } finally { setSaving(false) }
   }
+
+  const endereco = form.endereco ?? {}
 
   return (
     <div className="card">
@@ -55,7 +80,51 @@ function PacienteForm({ paciente, onSaved, onCancel }) {
             <option value="F">Feminino</option>
           </select>
         </label>
+        <label>
+          <span className="lbl">CPF</span>
+          <input className="inp" inputMode="numeric" placeholder="000.000.000-00"
+            value={form.cpf ?? ''} onChange={e => set('cpf', formatCPF(e.target.value))} />
+        </label>
+        <label>
+          <span className="lbl">Telefone para contato</span>
+          <input className="inp" inputMode="tel" placeholder="(84) 99168-8285"
+            value={form.telefone ?? ''} onChange={e => set('telefone', formatTelefone(e.target.value))} />
+        </label>
       </div>
+
+      <div className="lbl" style={{ marginBottom: 8 }}>Endereço</div>
+      <div className="grid-2" style={{ marginBottom: 12 }}>
+        <label>
+          <span className="lbl">CEP</span>
+          <input className="inp" value={endereco.cep ?? ''} onChange={e => setEnd('cep', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">Logradouro (Av./Rua)</span>
+          <input className="inp" value={endereco.logradouro ?? ''} onChange={e => setEnd('logradouro', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">Número</span>
+          <input className="inp" value={endereco.numero ?? ''} onChange={e => setEnd('numero', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">Complemento</span>
+          <input className="inp" value={endereco.complemento ?? ''} onChange={e => setEnd('complemento', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">Bairro</span>
+          <input className="inp" value={endereco.bairro ?? ''} onChange={e => setEnd('bairro', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">Cidade</span>
+          <input className="inp" value={endereco.cidade ?? ''} onChange={e => setEnd('cidade', e.target.value)} />
+        </label>
+        <label>
+          <span className="lbl">UF</span>
+          <input className="inp" maxLength={2} style={{ textTransform: 'uppercase' }}
+            value={endereco.uf ?? ''} onChange={e => setEnd('uf', e.target.value.toUpperCase())} />
+        </label>
+      </div>
+
       <label>
         <span className="lbl">História clínica / queixa</span>
         <textarea className="inp" rows={4} value={form.historico} onChange={e => set('historico', e.target.value)} />
@@ -68,6 +137,16 @@ function PacienteForm({ paciente, onSaved, onCancel }) {
       </div>
     </div>
   )
+}
+
+// Monta o endereço completo numa linha de exibição
+function formatEndereco(end) {
+  if (!end) return ''
+  const { logradouro, numero, complemento, bairro, cidade, uf, cep } = end
+  const linha1 = [logradouro, numero].filter(Boolean).join(', ')
+  const linha2 = [complemento, bairro].filter(Boolean).join(' — ')
+  const linha3 = [cidade, uf].filter(Boolean).join('/')
+  return [linha1, linha2, linha3, cep ? `CEP ${cep}` : ''].filter(Boolean).join(' · ')
 }
 
 // ── Gráfico de evolução ────────────────────────────────────────────────────
@@ -266,6 +345,9 @@ export default function Paciente() {
         <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/termo`)}>
           <FileSignature size={15} /> Termo de consentimento
         </button>
+        <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/termo-imagem`)}>
+          <FileSignature size={15} /> Termo de imagem
+        </button>
         <button className="btn-soft" onClick={() => nav(`/paciente/${pid}/financeiro`)}>
           <Banknote size={15} /> Financeiro
         </button>
@@ -275,11 +357,37 @@ export default function Paciente() {
       </div>
 
       {/* História */}
-      {paciente.historico && (
+      {(paciente.historico || paciente.cpf || paciente.telefone || formatEndereco(paciente.endereco)) && (
         <div className="card" style={{ marginBottom: 14 }}>
-          <span className="lbl">História clínica</span>
-          <p style={{ lineHeight: 1.6 }}>{paciente.historico}</p>
-          {paciente.medico && <p className="text-sub" style={{ marginTop: 6 }}>Médico: {paciente.medico}</p>}
+          {(paciente.cpf || paciente.telefone || formatEndereco(paciente.endereco)) && (
+            <div className="grid-2" style={{ marginBottom: paciente.historico ? 14 : 0 }}>
+              {paciente.cpf && (
+                <div>
+                  <span className="lbl">CPF</span>
+                  <p>{paciente.cpf}</p>
+                </div>
+              )}
+              {paciente.telefone && (
+                <div>
+                  <span className="lbl">Telefone</span>
+                  <p>{paciente.telefone}</p>
+                </div>
+              )}
+              {formatEndereco(paciente.endereco) && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className="lbl">Endereço</span>
+                  <p>{formatEndereco(paciente.endereco)}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {paciente.historico && (
+            <>
+              <span className="lbl">História clínica</span>
+              <p style={{ lineHeight: 1.6 }}>{paciente.historico}</p>
+              {paciente.medico && <p className="text-sub" style={{ marginTop: 6 }}>Médico: {paciente.medico}</p>}
+            </>
+          )}
         </div>
       )}
 

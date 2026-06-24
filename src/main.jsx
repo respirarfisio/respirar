@@ -14,6 +14,7 @@ import Admin               from './pages/Admin'
 import Dashboard           from './pages/Dashboard'
 import Agenda              from './pages/Agenda'
 import Termo               from './pages/Termo'
+import TermoImagem         from './pages/TermoImagem'
 import Prescricao          from './pages/Prescricao'
 import Financeiro          from './pages/Financeiro'
 import DashboardFinanceiro from './pages/DashboardFinanceiro'
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="paciente/novo"                          element={<Paciente />} />
               <Route path="paciente/:pid"                          element={<Paciente />} />
               <Route path="paciente/:pid/termo"                    element={<Termo />} />
+              <Route path="paciente/:pid/termo-imagem"             element={<TermoImagem />} />
               <Route path="paciente/:pid/prescricao"               element={<Prescricao />} />
               <Route path="paciente/:pid/financeiro"               element={<Financeiro />} />
               <Route path="paciente/:pid/avaliacao/nova"           element={<Avaliacao />} />

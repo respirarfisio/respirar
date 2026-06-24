@@ -11,11 +11,12 @@ import {
   predPImax, predPEmax, predGrip, predStepReps,
   predSTS5, predSTS1, predSindex, calcIMC, classIMC, fcMaxTanaka,
   predTC6, predQuadriceps, predBiceps, predCVF, predVEF1,
-  vo2TC6, vo2ToMETs, classTC6Pct, assimetria,
+  vo2TC6, vo2ToMETs, classTC6Pct, assimetria, sppbTotal,
   num, r1, pct,
 } from '../calc/referencias'
 import { fmtDate, borgLabel, SERIE_TC6 } from '../utils/avaliacao'
 import { ASSINATURA_RAVEL } from '../utils/assets'
+import { CBDF_CODIGOS } from '../utils/cbdf'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Tag({ tone='neutral', children }) {
@@ -115,11 +116,19 @@ function LungSVG() {
   )
 }
 
-// ─── Chave Groq — coloque aqui a sua chave do console.groq.com/keys ──────
-const GROQ_API_KEY = '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'
+// ─── Chave Groq ───────────────────────────────────────────────────────────
+// IMPORTANTE: a chave NÃO fica mais escrita no código-fonte (isso expunha a
+// chave publicamente, pois este é um app que roda no navegador). Configure-a
+// em um arquivo `.env` na raiz do projeto (NÃO versionado no Git):
+//   VITE_GROQ_API_KEY=gsk_sua_chave_aqui
+// Veja o arquivo `.env.example` para referência.
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_MODEL   = 'llama-3.3-70b-versatile'
 
 async function chamarGroq(prompt, maxTokens = 1000) {
+  if (!GROQ_API_KEY) {
+    throw new Error('Chave da API Groq não configurada. Defina VITE_GROQ_API_KEY no arquivo .env e reinicie o app.')
+  }
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -480,6 +489,7 @@ _Respirar Fisioterapeutas_
               <li><b>Aptidão Cardiovascular</b> — Teste do degrau de 6 min</li>
               <li><b>Função respiratória</b> — Pressão Inspiratória Máxima (PImáx) · Pressão Expiratória Máxima (PEmáx)</li>
               <li><b>Força Muscular Global</b> — Teste de Preensão Palmar · TSL 5 repetições · TSL 1 min</li>
+              {ev.testesAtivos?.includes('sppb') && <li><b>Mobilidade e equilíbrio</b> — SPPB (Short Physical Performance Battery)</li>}
             </ul>
           </div>
         </div>
@@ -725,6 +735,58 @@ _Respirar Fisioterapeutas_
           </div>
         </div>
 
+        {/* ── SPPB ──────────────────────────────────────────────────────── */}
+        {ev.testesAtivos?.includes('sppb') && (() => {
+          const s = ev.sppb ?? {}
+          const temDados = [s.pontoVel, s.pontoEquilibrio, s.tsl5ponto].some(v => v !== '' && v != null)
+          if (!temDados) return null
+          const { total, class: classe } = sppbTotal({
+            vel: s.pontoVel, equilibrio: s.pontoEquilibrio, tsl5: s.tsl5ponto,
+          })
+          const tone = total >= 10 ? 'good' : total >= 7 ? 'warn' : 'bad'
+          return (
+            <div className="rep-block no-break">
+              <RepH>SPPB — Short Physical Performance Battery</RepH>
+              <p style={{ lineHeight:1.65, marginBottom:12 }}>
+                Bateria curta de desempenho físico composta por três testes — velocidade de marcha,
+                equilíbrio estático progressivo e teste de sentar e levantar — utilizada para avaliar
+                mobilidade, equilíbrio e risco de incapacidade funcional em idosos e em condições crônicas.
+              </p>
+              <table className="rep-table">
+                <thead><tr><th>Subteste</th><th>Medida</th><th>Pontuação (0–4)</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight:600 }}>Velocidade de marcha (4 m)</td>
+                    <td>{s.velMarcha4m ? `${s.velMarcha4m} s` : '—'}</td>
+                    <td>{s.pontoVel !== '' && s.pontoVel != null ? s.pontoVel : '—'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight:600 }}>Equilíbrio (pés juntos / semi-tandem / tandem)</td>
+                    <td>
+                      {[
+                        s.peJuntos ? `Pés juntos: ${s.peJuntos}s` : null,
+                        s.umPeFrente ? `Semi-tandem: ${s.umPeFrente}s` : null,
+                        s.haluxCalcanhar ? `Tandem: ${s.haluxCalcanhar}s` : null,
+                      ].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                    <td>{s.pontoEquilibrio !== '' && s.pontoEquilibrio != null ? s.pontoEquilibrio : '—'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight:600 }}>Sentar e levantar (5 repetições)</td>
+                    <td>{ev.sts5?.tempo ? `${ev.sts5.tempo} s` : '—'}</td>
+                    <td>{s.tsl5ponto !== '' && s.tsl5ponto != null ? s.tsl5ponto : '—'}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="flex-center gap-10" style={{ marginTop:12 }}>
+                <span style={{ fontWeight:700, color:'var(--navy)' }}>Pontuação total: {total} / 12</span>
+                <Tag tone={tone}>{classe}</Tag>
+              </div>
+              <RefBox>Guralnik JM et al. J Gerontol. 1994;49(2):M85-94 — escore 0–3 incapacidade grave, 4–6 moderada, 7–9 leve, 10–12 normal</RefBox>
+            </div>
+          )
+        })()}
+
         {/* ── COMPARATIVO ─────────────────────────────────────────────── */}
         {prev && (
           <div className="rep-block no-break">
@@ -826,6 +888,9 @@ _Respirar Fisioterapeutas_
               <p style={{ fontWeight:700, marginBottom:8 }}>Resultados:</p>
               <ul style={{ paddingLeft:20, lineHeight:2.2, fontSize:13.5 }}>
                 <li>Distância percorrida: <b>{dist} m</b> ({pctDist}% do predito de {predDist} m){classTC6Pct(pctDist) ? ` — aptidão cardiorrespiratória "${classTC6Pct(pctDist)}"` : ''}.</li>
+                {num(ev.tc6.nVoltas) && num(ev.tc6.distVolta) && (
+                  <li>Percurso de <b>{num(ev.tc6.distVolta)} m por volta</b>, totalizando <b>{num(ev.tc6.nVoltas)} volta(s)</b> completadas.</li>
+                )}
                 {vo2 && <li>VO₂pico estimado (ACSM 2018): <b>{vo2} mℓ·kg⁻¹·min⁻¹</b> ({mets} METs).</li>}
                 {ev.tc6.nParadas ? <li>Realizou {ev.tc6.nParadas} parada(s) durante o teste.</li> : <li>Realizou o teste sem paradas.</li>}
                 {ev.tc6.obs && <li>{ev.tc6.obs}</li>}
@@ -1022,6 +1087,28 @@ _Respirar Fisioterapeutas_
             }}
           />
         </div>
+
+        {/* ── CÓDIGOS CBDF ─────────────────────────────────────────────── */}
+        {(ev.cbdfCodigos ?? []).length > 0 && (
+          <div className="rep-block no-break">
+            <RepH>Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)</RepH>
+            <table className="rep-table">
+              <thead><tr><th>Código</th><th>Descrição</th></tr></thead>
+              <tbody>
+                {ev.cbdfCodigos.map(codigo => {
+                  const item = CBDF_CODIGOS.find(c => c.codigo === codigo)
+                  return (
+                    <tr key={codigo}>
+                      <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{codigo}</td>
+                      <td>{item?.descricao ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <RefBox>COFFITO, Resolução nº 555/2022 (CBDF) — consulte a tabela oficial e atualizada em cbdf.coffito.gov.br</RefBox>
+          </div>
+        )}
 
         {/* ASSINATURA */}
         <div className="rep-sign">
