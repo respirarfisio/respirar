@@ -51,8 +51,9 @@ function PacienteForm({ paciente, onSaved, onCancel }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const id = await salvarPaciente({ ...form, idade: Number(form.idade), peso: Number(form.peso), altura: Number(form.altura) })
-      onSaved(id)
+      const dadosNormalizados = { ...form, idade: Number(form.idade), peso: Number(form.peso), altura: Number(form.altura) }
+      const id = await salvarPaciente(dadosNormalizados)
+      onSaved({ ...dadosNormalizados, id })
     } finally { setSaving(false) }
   }
 
@@ -279,6 +280,7 @@ export default function Paciente() {
   const [avaliacoes, setAvaliacoes] = useState([])
   const [editing, setEditing]       = useState(isNew)
   const [loading, setLoading]       = useState(!isNew)
+  const [toast, setToast]           = useState('')
 
   useEffect(() => {
     if (isNew) return
@@ -287,6 +289,13 @@ export default function Paciente() {
       .then(([p, avs]) => { setPaciente(p); setAvaliacoes(avs) })
       .finally(() => setLoading(false))
   }, [pid])
+
+  // Mostra a confirmação por 2.5s e some sozinha
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 2500)
+    return () => clearTimeout(t)
+  }, [toast])
 
   async function handleDelete() {
     if (!confirm('Excluir este paciente e todas as avaliações?')) return
@@ -298,6 +307,18 @@ export default function Paciente() {
     if (!confirm('Excluir esta avaliação?')) return
     await excluirAvaliacao(pid, aid)
     setAvaliacoes(avs => avs.filter(a => a.id !== aid))
+  }
+
+  // Chamado pelo PacienteForm depois de salvar com sucesso.
+  // dadosSalvos já vem com o id definitivo do Firestore.
+  function handleSaved(dadosSalvos) {
+    if (isNew) {
+      nav(`/paciente/${dadosSalvos.id}`)
+    } else {
+      setPaciente(dadosSalvos)   // atualiza a tela imediatamente, sem depender de navegação
+      setEditing(false)
+    }
+    setToast('Paciente salvo com sucesso.')
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: 48 }}><span className="spinner" /></div>
@@ -313,7 +334,7 @@ export default function Paciente() {
         </div>
         <PacienteForm
           paciente={paciente}
-          onSaved={id => nav(isNew ? `/paciente/${id}` : `/paciente/${pid}`)}
+          onSaved={handleSaved}
           onCancel={() => isNew ? nav('/') : setEditing(false)}
         />
       </>
@@ -322,6 +343,19 @@ export default function Paciente() {
 
   return (
     <>
+      {/* Confirmação de salvamento */}
+      {toast && (
+        <div className="no-print" style={{
+          position: 'fixed', top: 18, right: 18, zIndex: 1000,
+          background: 'var(--good-bg)', color: 'var(--good)',
+          padding: '10px 16px', borderRadius: 10, fontWeight: 650, fontSize: 13.5,
+          boxShadow: '0 4px 14px rgba(0,0,0,.12)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          ✓ {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex-center gap-10" style={{ marginBottom: 18 }}>
         <button className="btn-ghost" onClick={() => nav('/')} style={{ padding: '9px 12px' }}>
