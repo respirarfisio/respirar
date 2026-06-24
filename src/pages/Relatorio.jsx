@@ -566,29 +566,33 @@ _Respirar Fisioterapeutas_
   return (
     <>
       {/* Controles — não imprimem */}
-      <div className="no-print flex-center gap-10" style={{ marginBottom: 18 }}>
-        <button
-          className="btn-ghost"
-          onClick={() => nav(`/paciente/${pid}`)}
-          style={{ padding: '9px 12px' }}
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div style={{ flex: 1 }}>
-          <h1>Relatório</h1>
-          <p className="text-sub">
-            {paciente.nome} · {fmtDate(ev.data)}
-          </p>
+      <div className="no-print rep-toolbar" style={{ marginBottom: 18 }}>
+        <div className="rep-toolbar-title flex-center gap-10">
+          <button
+            className="btn-ghost"
+            onClick={() => nav(`/paciente/${pid}`)}
+            style={{ padding: '9px 12px' }}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div style={{ flex: 1 }}>
+            <h1>Relatório</h1>
+            <p className="text-sub">
+              {paciente.nome} · {fmtDate(ev.data)}
+            </p>
+          </div>
         </div>
-        <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}/avaliacao/${aid}`)}>
-          <Pencil size={15} /> Editar
-        </button>
-        <button className="btn-soft" onClick={handleWhatsApp} disabled={compartilhando}>
-          {compartilhando ? <span className="spinner" /> : <Share2 size={15} />} WhatsApp
-        </button>
-        <button className="btn-primary" onClick={handlePDF}>
-          <Printer size={16} /> Exportar PDF
-        </button>
+        <div className="rep-toolbar-actions flex gap-10">
+          <button className="btn-ghost" onClick={() => nav(`/paciente/${pid}/avaliacao/${aid}`)}>
+            <Pencil size={15} /> Editar
+          </button>
+          <button className="btn-soft" onClick={handleWhatsApp} disabled={compartilhando}>
+            {compartilhando ? <span className="spinner" /> : <Share2 size={15} />} WhatsApp
+          </button>
+          <button className="btn-primary" onClick={handlePDF}>
+            <Printer size={16} /> Exportar PDF
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════

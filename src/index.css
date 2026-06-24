@@ -312,6 +312,33 @@ label .hint { font-size: 11.5px; color: var(--sub); margin-top: 4px; }
 
 .rep-sign { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); }
 
+/* ── Barra de ações de cabeçalho (Voltar/título + botões de ação) ────────
+   Reutilizável em qualquer página com o padrão: botão voltar, título
+   flexível no meio, e 1+ botões de ação à direita. No mobile, quebra em
+   duas linhas para nenhum botão ficar cortado fora da tela. */
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.page-toolbar-title { flex: 1; min-width: 0; }
+.page-toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 680px) {
+  .page-toolbar { flex-direction: column; align-items: stretch; }
+  .page-toolbar-actions { justify-content: flex-start; }
+}
+
+/* Aliases usados no Relatório (mesmo comportamento) */
+.rep-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rep-toolbar-title { flex: 1; min-width: 0; }
+.rep-toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 680px) {
+  .rep-toolbar { flex-direction: column; align-items: stretch; }
+  .rep-toolbar-actions { justify-content: flex-start; }
+}
+
 /* ── Separação de seções/testes em folhas distintas ───────────────────── */
 /* Na tela: simula o fim de uma folha (linha pontilhada + respiro maior). */
 /* Na impressão/PDF: força quebra de página real antes da seção. */

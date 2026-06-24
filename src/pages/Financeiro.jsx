@@ -82,14 +82,18 @@ function QRCodePix({ valor, paciente }) {
 function Recibo({ paciente, pagamento, pacote, onFechar }) {
   return (
     <>
-      <div className="no-print flex-center gap-10" style={{ marginBottom: 18 }}>
-        <button className="btn-ghost" onClick={onFechar} style={{ padding: '9px 12px' }}>
-          <ArrowLeft size={18} />
-        </button>
-        <h1 style={{ flex: 1 }}>Recibo</h1>
-        <button className="btn-primary" onClick={() => window.print()}>
-          <Printer size={16} /> Imprimir
-        </button>
+      <div className="no-print page-toolbar" style={{ marginBottom: 18 }}>
+        <div className="page-toolbar-title flex-center gap-10">
+          <button className="btn-ghost" onClick={onFechar} style={{ padding: '9px 12px' }}>
+            <ArrowLeft size={18} />
+          </button>
+          <h1 style={{ flex: 1 }}>Recibo</h1>
+        </div>
+        <div className="page-toolbar-actions flex gap-10">
+          <button className="btn-primary" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
       </div>
 
       <div className="report">
