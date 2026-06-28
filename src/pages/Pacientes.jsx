@@ -78,7 +78,7 @@ export default function Pacientes() {
               <div style={{ flex: 1, textAlign: 'left' }}>
                 <div style={{ fontWeight: 650, color: 'var(--ink)' }}>{p.nome}</div>
                 <div className="text-sub">
-                  {p.sexo === 'M' ? 'Masculino' : 'Feminino'} · {p.idade} anos · {counts[p.id] ?? 0} avaliação{counts[p.id] !== 1 ? 'ões' : ''}
+                  {p.sexo === 'M' ? 'Masculino' : 'Feminino'} · {p.idade} anos · {counts[p.id] ?? 0} {counts[p.id] === 1 ? 'avaliação' : 'avaliações'}
                 </div>
               </div>
               <ChevronRight size={18} color="var(--sub)" />
