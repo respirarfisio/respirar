@@ -93,7 +93,16 @@ export function avaliacaoVazia() {
     conclusao: '',
     conclusaoIA: '',
     comparativoIA: '', // análise comparativa de evolução gerada/editada, persistida no Firestore
-    cbdfCodigos: [], // códigos CBDF selecionados manualmente para o relatório
+    // Overrides manuais do motor de composição CBDF (utils/cbdf.js).
+    // Cada campo sobrescreve o que seria inferido automaticamente dos testes.
+    // blocosAtivos: quais blocos CBDF aparecem no relatório deste paciente.
+    cbdf: {
+      blocosAtivos: [], // ex: ['d03','d04','d05','m04']
+      d03Status: '00', d03Dor: null, d03MobArt: null, d03Segmento: '9',
+      d04Status: null,
+      d05Status: '00', d05Vasos: null,
+      m04Status: null, m04Escadas: null,
+    },
     profissional: 'Dr. Ravel Marinho — CREFITO 1 nº 216.212 F',
   }
 }

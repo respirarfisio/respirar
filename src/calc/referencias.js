@@ -194,3 +194,55 @@ export function assimetria(d, e) {
   if (!d || !e) return null
   return r1(Math.abs(d - e) / Math.max(d, e) * 100)
 }
+
+// ── Cálculos consolidados de uma avaliação ─────────────────────────────────
+// Centraliza obtido/predito/% para os principais testes, usado no Relatório
+// e em qualquer outro lugar que precise dos mesmos números (ex.: motor CBDF).
+export function calcEv(ev, paciente) {
+  const idade = paciente?.idade, sexo = paciente?.sexo
+  const peso = num(ev.vitais?.peso) || num(paciente?.peso)
+  const altura = num(ev.vitais?.altura) || num(paciente?.altura)
+
+  const pimP = num(ev.pimax?.predito) ?? r1(predPImax(idade, sexo))
+  const pemP = num(ev.pemax?.predito) ?? r1(predPEmax(idade, sexo))
+  const sindP = num(ev.sindex?.predito) ?? r1(predSindex(idade, sexo))
+  const grP = num(ev.grip?.predito) ?? r1(predGrip(idade, peso, sexo))
+  const repsP = num(ev.degrau?.preditoReps) ?? r1(predStepReps(idade, sexo))
+  const tc6P = num(ev.tc6?.preditoDist) ?? r1(predTC6(idade, sexo))
+  const sts5P = num(ev.sts5?.predito) ?? predSTS5(idade)
+  const sts1P = num(ev.sts1?.predito) ?? predSTS1(idade, sexo)
+  const cvfP = num(ev.espiro?.preBD?.cvfPred) ?? r1(predCVF(idade, altura, sexo))
+  const vef1P = num(ev.espiro?.preBD?.vef1Pred) ?? r1(predVEF1(idade, altura, sexo))
+  const quadP = r1(predQuadriceps(idade, sexo))
+  const bicP = r1(predBiceps(idade, sexo))
+
+  const pim = num(ev.pimax?.obtido)
+  const pem = num(ev.pemax?.obtido)
+  const sind = num(ev.sindex?.obtido)
+  const grip = num(ev.grip?.obtido)
+  const reps = num(ev.degrau?.reps)
+  const tc6d = num(ev.tc6?.distancia)
+  const sts5 = num(ev.sts5?.tempo)
+  const sts1 = num(ev.sts1?.reps)
+  const cvf = num(ev.espiro?.preBD?.cvf)
+  const vef1 = num(ev.espiro?.preBD?.vef1)
+  const qD = num(ev.dinamo?.quadD), qE = num(ev.dinamo?.quadE)
+  const bD = num(ev.dinamo?.bicD), bE = num(ev.dinamo?.bicE)
+  const quad = qD != null && qE != null ? r1((qD + qE) / 2) : (qD ?? qE ?? null)
+  const bic = bD != null && bE != null ? r1((bD + bE) / 2) : (bD ?? bE ?? null)
+
+  return {
+    pim, pimP, pimPct: pct(pim, pimP),
+    pem, pemP, pemPct: pct(pem, pemP),
+    sind, sindP, sindPct: pct(sind, sindP),
+    grip, grP, gripPct: pct(grip, grP),
+    reps, repsP, repsPct: pct(reps, repsP),
+    tc6d, tc6P, tc6Pct: pct(tc6d, tc6P),
+    sts5, sts5P, sts5Risk: sts5 == null ? null : sts5 <= sts5P ? 'Diminuído' : 'Aumentado',
+    sts1, sts1P, sts1Pct: pct(sts1, sts1P),
+    cvf, cvfP, cvfPct: pct(cvf, cvfP),
+    vef1, vef1P, vef1Pct: pct(vef1, vef1P),
+    quad, quadP, quadPct: pct(quad, quadP),
+    bic, bicP, bicPct: pct(bic, bicP),
+  }
+}

@@ -36,13 +36,14 @@ import {
   classTC6Pct,
   assimetria,
   sppbTotal,
+  calcEv,
   num,
   r1,
   pct,
 } from '../calc/referencias'
 import { fmtDate, borgLabel, SERIE_TC6 } from '../utils/avaliacao'
 import { ASSINATURA_RAVEL } from '../utils/assets'
-import { CBDF_CODIGOS } from '../utils/cbdf'
+import { montarCBDF } from '../utils/cbdf'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Tag({ tone = 'neutral', children }) {
@@ -328,82 +329,6 @@ de TODAS as variáveis listadas acima — não apenas algumas — destacando mel
 manutenção de cada uma, e o que isso representa para o prognóstico e conduta do paciente. Sem título.`
 
   return chamarGroq(prompt, 800)
-}
-
-function calcEv(ev, paciente) {
-  const idade = paciente.idade,
-    sexo = paciente.sexo
-  const peso = num(ev.vitais?.peso) || num(paciente.peso)
-  const altura = num(ev.vitais?.altura) || num(paciente.altura)
-
-  const pimP = num(ev.pimax?.predito) ?? r1(predPImax(idade, sexo))
-  const pemP = num(ev.pemax?.predito) ?? r1(predPEmax(idade, sexo))
-  const sindP = num(ev.sindex?.predito) ?? r1(predSindex(idade, sexo))
-  const grP = num(ev.grip?.predito) ?? r1(predGrip(idade, peso, sexo))
-  const repsP = num(ev.degrau?.preditoReps) ?? r1(predStepReps(idade, sexo))
-  const tc6P = num(ev.tc6?.preditoDist) ?? r1(predTC6(idade, sexo))
-  const sts5P = num(ev.sts5?.predito) ?? predSTS5(idade)
-  const sts1P = num(ev.sts1?.predito) ?? predSTS1(idade, sexo)
-  const cvfP = num(ev.espiro?.preBD?.cvfPred) ?? r1(predCVF(idade, altura, sexo))
-  const vef1P = num(ev.espiro?.preBD?.vef1Pred) ?? r1(predVEF1(idade, altura, sexo))
-  const quadP = r1(predQuadriceps(idade, sexo))
-  const bicP = r1(predBiceps(idade, sexo))
-
-  const pim = num(ev.pimax?.obtido)
-  const pem = num(ev.pemax?.obtido)
-  const sind = num(ev.sindex?.obtido)
-  const grip = num(ev.grip?.obtido)
-  const reps = num(ev.degrau?.reps)
-  const tc6d = num(ev.tc6?.distancia)
-  const sts5 = num(ev.sts5?.tempo)
-  const sts1 = num(ev.sts1?.reps)
-  const cvf = num(ev.espiro?.preBD?.cvf)
-  const vef1 = num(ev.espiro?.preBD?.vef1)
-  const qD = num(ev.dinamo?.quadD),
-    qE = num(ev.dinamo?.quadE)
-  const bD = num(ev.dinamo?.bicD),
-    bE = num(ev.dinamo?.bicE)
-  const quad = qD != null && qE != null ? r1((qD + qE) / 2) : (qD ?? qE ?? null)
-  const bic = bD != null && bE != null ? r1((bD + bE) / 2) : (bD ?? bE ?? null)
-
-  return {
-    pim,
-    pimP,
-    pimPct: pct(pim, pimP),
-    pem,
-    pemP,
-    pemPct: pct(pem, pemP),
-    sind,
-    sindP,
-    sindPct: pct(sind, sindP),
-    grip,
-    grP,
-    gripPct: pct(grip, grP),
-    reps,
-    repsP,
-    repsPct: pct(reps, repsP),
-    tc6d,
-    tc6P,
-    tc6Pct: pct(tc6d, tc6P),
-    sts5,
-    sts5P,
-    sts5Risk: sts5 == null ? null : sts5 <= sts5P ? 'Diminuído' : 'Aumentado',
-    sts1,
-    sts1P,
-    sts1Pct: pct(sts1, sts1P),
-    cvf,
-    cvfP,
-    cvfPct: pct(cvf, cvfP),
-    vef1,
-    vef1P,
-    vef1Pct: pct(vef1, vef1P),
-    quad,
-    quadP,
-    quadPct: pct(quad, quadP),
-    bic,
-    bicP,
-    bicPct: pct(bic, bicP),
-  }
 }
 
 // ─── Página ──────────────────────────────────────────────────────────────
@@ -1654,36 +1579,52 @@ _Respirar Fisioterapeutas_
         </div>
 
         {/* ── CÓDIGOS CBDF ─────────────────────────────────────────────── */}
-        {(ev.cbdfCodigos ?? []).length > 0 && (
-          <div className="rep-block no-break">
-            <RepH>Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)</RepH>
-            <div className="rep-table-wrap">
-              <table className="rep-table">
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Descrição</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ev.cbdfCodigos.map((codigo) => {
-                    const item = CBDF_CODIGOS.find((c) => c.codigo === codigo)
-                    return (
-                      <tr key={codigo}>
-                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{codigo}</td>
-                        <td>{item?.descricao ?? '—'}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+        {(ev.cbdf?.blocosAtivos ?? []).length > 0 && (() => {
+          const calc = calcEv(ev, paciente)
+          const blocos = montarCBDF(ev, calc, paciente, ev.cbdf ?? {})
+          const ativos = ev.cbdf.blocosAtivos.map((k) => blocos[k]).filter(Boolean)
+          if (!ativos.length) return null
+          return (
+            <div className="rep-block no-break">
+              <RepH>Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)</RepH>
+              {ativos.map((bloco) => (
+                <div key={bloco.sistema} style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 2 }}>
+                    {bloco.codigo}
+                  </div>
+                  <div className="text-sub" style={{ fontSize: 12.5, marginBottom: 8 }}>
+                    {bloco.nome} — {bloco.statusLabel}
+                  </div>
+                  <div className="rep-table-wrap">
+                    <table className="rep-table">
+                      <thead>
+                        <tr>
+                          <th>Caracterizador</th>
+                          <th>Achado</th>
+                          <th>Origem do dado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bloco.subs.map((s, i) => (
+                          <tr key={i}>
+                            <td style={{ fontWeight: 600 }}>{s.label}</td>
+                            <td>{s.digito == null ? '—' : `${s.digito} · ${s.rotulo ?? ''}`}</td>
+                            <td className="text-sub" style={{ fontSize: 12 }}>{s.origem}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+              <RefBox>
+                COFFITO, Resolução nº 555/2022 (Anexo I — CBDF). Códigos compostos automaticamente
+                a partir dos testes desta avaliação e revisados pelo profissional responsável.
+                Consulte a tabela oficial em cbdf.coffito.gov.br em caso de dúvida.
+              </RefBox>
             </div>
-            <RefBox>
-              COFFITO, Resolução nº 555/2022 (CBDF) — consulte a tabela oficial e atualizada em
-              cbdf.coffito.gov.br
-            </RefBox>
-          </div>
-        )}
+          )
+        })()}
 
         {/* ASSINATURA */}
         <div className="rep-sign">

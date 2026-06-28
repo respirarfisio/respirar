@@ -10,11 +10,20 @@ import {
   predPImax, predPEmax, predGrip, predStepReps,
   predSTS5, predSTS1, predSindex, calcIMC, fcMaxTanaka,
   predTC6, predQuadriceps, predBiceps, predCVF, predVEF1,
-  sppbTotal, num, r1,
+  sppbTotal, calcEv, num, r1,
 } from '../calc/referencias'
 import { avaliacaoVazia, SERIE_DEGRAU, SERIE_TC6, TESTES_DISPONIVEIS, fmtDate } from '../utils/avaliacao'
 import { SixMinuteTest, Stopwatch, RepCounterTimer, ImportarPolarFC } from '../components/TestTimers'
-import { CBDF_CODIGOS, CBDF_LINK } from '../utils/cbdf'
+import {
+  montarCBDF,
+  CBDF_LINK,
+  OPCOES_D03_STATUS,
+  OPCOES_D05_STATUS,
+  OPCOES_M04_STATUS,
+  OPCOES_DIGITO_0A4,
+  OPCOES_DIGITO_BIN,
+  OPCOES_SEGMENTO_D03,
+} from '../utils/cbdf'
 
 // ─── UI helpers ──────────────────────────────────────────────────────────
 function Field({ label, hint, children }) {
@@ -101,6 +110,69 @@ function Ref({ children }) {
   )
 }
 
+// ── Bloco CBDF: mostra um código composto, com a origem de cada dígito ────
+// Permite ativar/desativar o bloco no relatório e sobrescrever manualmente
+// os campos que não têm fonte automática (status clínico, dor, segmento etc.)
+function BlocoCBDF({ bloco, ativo, onToggle, manual, onManualChange, statusOptions, extraFields }) {
+  return (
+    <div style={{
+      border: ativo ? '1.5px solid var(--teal)' : '1.5px solid var(--border)',
+      borderRadius: 12, padding: 14, marginBottom: 12,
+      background: ativo ? 'var(--teal-light)' : 'var(--bg)',
+    }}>
+      <label className="flex-center gap-8" style={{ cursor: 'pointer', marginBottom: 10 }}>
+        <input type="checkbox" checked={ativo} onChange={onToggle}
+          style={{ width: 16, height: 16, accentColor: 'var(--teal)', flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 13.5 }}>{bloco.sistema} — {bloco.nome}</div>
+          <div className="text-sub" style={{ fontSize: 12, fontFamily: 'monospace' }}>{bloco.codigo}</div>
+        </div>
+        {!bloco.completo && (
+          <span className="tag tag-warn" style={{ fontSize: 10.5 }}>Dados incompletos</span>
+        )}
+      </label>
+
+      {ativo && (
+        <div style={{ paddingLeft: 24 }}>
+          {/* Status (Bloco A) — geralmente precisa de confirmação manual */}
+          {statusOptions && (
+            <div style={{ marginBottom: 10 }}>
+              <span className="lbl">Status — {bloco.statusLabel ?? 'selecione'}</span>
+              <select className="inp" value={bloco.status ?? ''} onChange={(e) => onManualChange(e.target.value)}>
+                <option value="">Selecione</option>
+                {statusOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Subcódigos (Bloco B) — mostra origem; alguns são editáveis */}
+          <div style={{ display: 'grid', gap: 6 }}>
+            {bloco.subs.map((s, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 10, fontSize: 12.5, padding: '6px 10px', background: '#fff', borderRadius: 8,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{s.label}</div>
+                  <div className="text-sub" style={{ fontSize: 11 }}>{s.origem}</div>
+                </div>
+                <span className={`tag tag-${s.digito == null ? 'neutral' : s.digito === 0 ? 'good' : s.digito <= 1 ? 'warn' : 'bad'}`}>
+                  {s.digito == null ? 'sem dado' : `${s.digito} · ${s.rotulo ?? ''}`}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Campos extras manuais (dor, mobilidade articular, segmento etc.) */}
+          {extraFields}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────
 export default function Avaliacao() {
   const { pid, aid } = useParams()
@@ -117,7 +189,10 @@ export default function Avaliacao() {
     if (!isNew) tasks.push(getAvaliacao(pid, aid))
     Promise.all(tasks).then(([p, a]) => {
       setPaciente(p)
-      if (a) setEv({ ...avaliacaoVazia(), ...a })
+      if (a) {
+        const base = avaliacaoVazia()
+        setEv({ ...base, ...a, cbdf: { ...base.cbdf, ...(a.cbdf ?? {}) } })
+      }
     }).finally(() => setLoading(false))
   }, [pid, aid])
 
@@ -626,31 +701,109 @@ export default function Avaliacao() {
       )}
 
       {/* ── CBDF — Classificação Brasileira de Diagnósticos Fisioterapêuticos ── */}
-      <Section icon={ClipboardList} title="Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)">
-        <p className="text-sub" style={{ marginBottom: 12, fontSize: 12.5 }}>
-          Selecione os códigos CBDF aplicáveis a este caso. Consulte a tabela completa e oficial em{' '}
-          <a href={CBDF_LINK} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal-dark)' }}>{CBDF_LINK}</a>{' '}
-          antes de confirmar, pois esta é apenas uma lista de referência com os códigos mais comuns.
-        </p>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {CBDF_CODIGOS.map(({ codigo, descricao }) => {
-            const marcado = (ev.cbdfCodigos ?? []).includes(codigo)
-            return (
-              <label key={codigo} className="flex-center gap-8"
-                style={{ cursor: 'pointer', fontSize: 13, padding: '8px 12px', background: 'var(--bg)', borderRadius: 10,
-                  border: marcado ? '1.5px solid var(--teal)' : '1.5px solid transparent' }}>
-                <input type="checkbox" checked={marcado}
-                  onChange={() => {
-                    const atuais = ev.cbdfCodigos ?? []
-                    set('cbdfCodigos', marcado ? atuais.filter(c => c !== codigo) : [...atuais, codigo])
-                  }}
-                  style={{ width: 15, height: 15, accentColor: 'var(--teal)', flexShrink: 0 }} />
-                <span><b>{codigo}</b> — {descricao}</span>
-              </label>
-            )
-          })}
-        </div>
-      </Section>
+      {(() => {
+        const calc = calcEv(ev, paciente)
+        const manual = ev.cbdf ?? {}
+        const blocos = montarCBDF(ev, calc, paciente, manual)
+        const blocosAtivos = manual.blocosAtivos ?? []
+        const setManual = (campo, valor) => set(`cbdf.${campo}`, valor)
+        const toggleBloco = (key) => {
+          const atual = blocosAtivos.includes(key)
+          setManual('blocosAtivos', atual ? blocosAtivos.filter((b) => b !== key) : [...blocosAtivos, key])
+        }
+
+        return (
+          <Section icon={ClipboardList} title="Classificação Brasileira de Diagnósticos Fisioterapêuticos (CBDF)">
+            <p className="text-sub" style={{ marginBottom: 12, fontSize: 12.5 }}>
+              Os códigos abaixo são montados automaticamente a partir dos testes já registrados
+              nesta avaliação. Marque os blocos que devem entrar no relatório, confirme o status
+              clínico e complete os campos sem fonte automática. Consulte a tabela completa em{' '}
+              <a href={CBDF_LINK} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal-dark)' }}>
+                {CBDF_LINK}
+              </a>{' '}
+              em caso de dúvida — você pode ajustar qualquer dígito antes de salvar.
+            </p>
+
+            <BlocoCBDF
+              bloco={blocos.d03}
+              ativo={blocosAtivos.includes('d03')}
+              onToggle={() => toggleBloco('d03')}
+              statusOptions={OPCOES_D03_STATUS}
+              onManualChange={(v) => setManual('d03Status', v)}
+              extraFields={
+                <div className="grid-2" style={{ marginTop: 10, gap: 8 }}>
+                  <Field label="Dor (0–4)">
+                    <select className="inp" value={manual.d03Dor ?? ''} onChange={(e) => setManual('d03Dor', e.target.value === '' ? null : Number(e.target.value))}>
+                      <option value="">Sem dado</option>
+                      {OPCOES_DIGITO_0A4.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Mobilidade articular (0–4)">
+                    <select className="inp" value={manual.d03MobArt ?? ''} onChange={(e) => setManual('d03MobArt', e.target.value === '' ? null : Number(e.target.value))}>
+                      <option value="">Sem dado</option>
+                      {OPCOES_DIGITO_0A4.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Segmento acometido">
+                    <select className="inp" value={manual.d03Segmento ?? '9'} onChange={(e) => setManual('d03Segmento', e.target.value)}>
+                      {OPCOES_SEGMENTO_D03.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              }
+            />
+
+            <BlocoCBDF
+              bloco={blocos.d04}
+              ativo={blocosAtivos.includes('d04')}
+              onToggle={() => toggleBloco('d04')}
+            />
+
+            <BlocoCBDF
+              bloco={blocos.d05}
+              ativo={blocosAtivos.includes('d05')}
+              onToggle={() => toggleBloco('d05')}
+              statusOptions={OPCOES_D05_STATUS}
+              onManualChange={(v) => setManual('d05Status', v)}
+              extraFields={
+                <div style={{ marginTop: 10 }}>
+                  <Field label="Função dos vasos (0 ou 4)">
+                    <select className="inp" value={manual.d05Vasos ?? ''} onChange={(e) => setManual('d05Vasos', e.target.value === '' ? null : Number(e.target.value))}>
+                      <option value="">Sem dado</option>
+                      {OPCOES_DIGITO_BIN.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              }
+            />
+
+            <BlocoCBDF
+              bloco={blocos.m04}
+              ativo={blocosAtivos.includes('m04')}
+              onToggle={() => toggleBloco('m04')}
+              statusOptions={OPCOES_M04_STATUS}
+              onManualChange={(v) => setManual('m04Status', v)}
+              extraFields={
+                <div style={{ marginTop: 10 }}>
+                  <Field label="Subir/descer escadas e/ou rampas (0 ou 4)">
+                    <select className="inp" value={manual.m04Escadas ?? ''} onChange={(e) => setManual('m04Escadas', e.target.value === '' ? null : Number(e.target.value))}>
+                      <option value="">Sem dado</option>
+                      {OPCOES_DIGITO_BIN.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                </div>
+              }
+            />
+
+            <Ref>
+              COFFITO, Resolução nº 555/2022 (Anexo I — CBDF). Os dígitos com origem em teste são
+              calculados automaticamente; status clínico, dor, mobilidade articular, segmento
+              corporal, função dos vasos e escadas não têm fonte automática e devem ser
+              confirmados manualmente.
+            </Ref>
+          </Section>
+        )
+      })()}
 
       {/* ── CONCLUSÃO ─────────────────────────────────────────────────── */}
       <Section icon={FileText} title="Conclusão e Profissional">
