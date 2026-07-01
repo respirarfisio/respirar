@@ -63,31 +63,32 @@ export function avaliacaoVazia() {
     },
 
     // PImáx / PEmáx
-    pimax: { obtido:'', predito:'' },
-    pemax: { obtido:'', predito:'' },
+    pimax: { obtido:'', predito:'', obs:'' },
+    pemax: { obtido:'', predito:'', obs:'' },
 
     // S-Index
     sindex: { obtido:'', predito:'', obs:'' },
 
     // Preensão palmar
-    grip: { obtido:'', predito:'', mao:'Dominante' },
+    grip: { obtido:'', predito:'', mao:'Dominante', obs:'' },
 
     // Dinamometria bilateral (Meldrum 2007)
     dinamo: {
       quadD:'', quadE:'', quadPred:'',
       bicD:'',  bicE:'',  bicPred:'',
+      obs:'',
     },
 
     // TSL
-    sts5: { tempo:'', predito:'' },
-    sts1: { reps:'',  predito:'' },
+    sts5: { tempo:'', predito:'', obs:'' },
+    sts1: { reps:'',  predito:'', obs:'' },
 
     // SPPB — Short Physical Performance Battery (Guralnik et al., 1994)
     // Pontuação: 3 subtestes de 0–4 pontos cada (velocidade de marcha, equilíbrio, TSL 5 rep) — total 0–12
     sppb: {
       velMarcha4m:'', pontoVel:'',
       peJuntos:'', umPeFrente:'', haluxCalcanhar:'', pontoEquilibrio:'',
-      tsl5ponto:'',
+      tsl5ponto:'', obs:'',
     },
 
     conclusao: '',

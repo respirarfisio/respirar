@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import { getPaciente, getAvaliacao, listarAvaliacoes, salvarAvaliacao } from '../utils/db'
+import { getPaciente, getAvaliacao, listarAvaliacoes, salvarAvaliacao, salvarPaciente } from '../utils/db'
 import {
   predPImax,
   predPEmax,
@@ -104,26 +104,37 @@ function ChartCard({ title, children }) {
 }
 
 // ── Campo editável inline no relatório ───────────────────────────────────
-function EditableField({ value, onChange, rows = 4, placeholder }) {
+// onChange(texto) pode ser uma função async — mostra "Salvando…" enquanto aguarda.
+function EditableField({ value, onChange, rows = 4, placeholder, inline = false }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
+  const [draft, setDraft] = useState(value ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await onChange(draft)
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!editing) {
     return (
-      <div style={{ position: 'relative' }}>
+      <div className="editable-field-wrap">
         {value ? (
-          <p style={{ lineHeight: 1.7, textAlign: 'justify' }}>{value}</p>
+          <p style={{ lineHeight: 1.7, textAlign: inline ? 'left' : 'justify', margin: 0 }}>{value}</p>
         ) : (
-          <p style={{ color: 'var(--sub)', fontStyle: 'italic' }}>{placeholder}</p>
+          <p style={{ color: 'var(--sub)', fontStyle: 'italic', margin: 0 }}>
+            {placeholder ?? 'Clique em editar para adicionar texto…'}
+          </p>
         )}
         <button
-          className="no-print btn-ghost"
-          onClick={() => {
-            setDraft(value)
-            setEditing(true)
-          }}
-          style={{ position: 'absolute', top: 0, right: 0, padding: '4px 8px', fontSize: 12 }}
+          className="no-print btn-ghost editable-field-btn"
+          onClick={() => { setDraft(value ?? ''); setEditing(true) }}
         >
-          <Pencil size={12} /> Editar
+          <Pencil size={11} /> Editar
         </button>
       </div>
     )
@@ -138,21 +149,20 @@ function EditableField({ value, onChange, rows = 4, placeholder }) {
         style={{ marginBottom: 8, fontSize: 13.5, lineHeight: 1.6 }}
         autoFocus
       />
-      <div className="flex gap-8">
+      <div className="flex gap-8 no-print">
         <button
-          className="btn-primary no-print"
+          className="btn-primary"
           style={{ padding: '7px 12px', fontSize: 13 }}
-          onClick={() => {
-            onChange(draft)
-            setEditing(false)
-          }}
+          onClick={handleSave}
+          disabled={saving}
         >
-          <Check size={13} /> Salvar
+          {saving ? <span className="spinner" /> : <Check size={13} />} Salvar
         </button>
         <button
-          className="btn-ghost no-print"
+          className="btn-ghost"
           style={{ padding: '7px 12px', fontSize: 13 }}
           onClick={() => setEditing(false)}
+          disabled={saving}
         >
           <X size={13} /> Cancelar
         </button>
@@ -175,6 +185,27 @@ function RefBox({ children }) {
       }}
     >
       <b>Referência:</b> {children}
+    </div>
+  )
+}
+
+// Campo de observações editável inline no relatório.
+// Salva diretamente no Firestore quando o profissional confirma.
+// Só aparece na impressão/PDF se tiver conteúdo.
+function ObsField({ label = 'Observações', value, onSave }) {
+  return (
+    <div style={{ marginTop: 12 }} className={!value ? 'no-print' : ''}>
+      {value && (
+        <p style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--sub)', marginBottom: 4 }}>
+          {label}
+        </p>
+      )}
+      <EditableField
+        value={value}
+        placeholder={`Clique em editar para adicionar ${label.toLowerCase()}…`}
+        rows={3}
+        onChange={onSave}
+      />
     </div>
   )
 }
@@ -616,7 +647,16 @@ _Respirar Fisioterapeutas_
         {/* VISÃO GERAL */}
         <div className="rep-block">
           <RepH>Visão Geral</RepH>
-          <p style={{ lineHeight: 1.65, textAlign: 'justify' }}>{paciente.historico || '—'}</p>
+          <EditableField
+            value={paciente.historico}
+            placeholder="Histórico clínico não informado."
+            rows={5}
+            onChange={async (texto) => {
+              const atualizado = { ...paciente, historico: texto }
+              await salvarPaciente(atualizado)
+              setPaciente(atualizado)
+            }}
+          />
           <div style={{ marginTop: 12 }}>
             <p style={{ fontWeight: 600, marginBottom: 6 }}>
               Procedimentos avaliativos realizados:
@@ -786,7 +826,18 @@ _Respirar Fisioterapeutas_
             </div>
           )}
 
-          {ev.degrau?.obs && <p style={{ marginTop: 10 }}>{ev.degrau.obs}</p>}
+          <div style={{ marginTop: 10 }}>
+            <EditableField
+              value={ev.degrau?.obs}
+              placeholder="Observações do teste do degrau…"
+              rows={3}
+              onChange={async (texto) => {
+                const updated = { ...ev, degrau: { ...ev.degrau, obs: texto } }
+                setEv(updated)
+                await salvarAvaliacao(pid, updated)
+              }}
+            />
+          </div>
 
           {/* Imagens do degrau */}
           {(ev.degrau?.imagens ?? []).length > 0 && (
@@ -884,6 +935,16 @@ _Respirar Fisioterapeutas_
               </>
             )}
           </div>
+
+          <ObsField
+            label="Observações — Função Muscular Respiratória"
+            value={ev.sindex?.obs || ev.pimax?.obs || ''}
+            onSave={async (texto) => {
+              const updated = { ...ev, sindex: { ...ev.sindex, obs: texto } }
+              setEv(updated)
+              await salvarAvaliacao(pid, updated)
+            }}
+          />
         </div>
 
         {/* ── FUNÇÃO PERIFÉRICA ───────────────────────────────────────── */}
@@ -982,6 +1043,15 @@ _Respirar Fisioterapeutas_
                 </div>
               </div>
             )}
+          <ObsField
+            label="Observações — Função Muscular Periférica"
+            value={ev.grip?.obs || ev.sts5?.obs || ''}
+            onSave={async (texto) => {
+              const updated = { ...ev, grip: { ...ev.grip, obs: texto }, sts5: { ...ev.sts5, obs: texto } }
+              setEv(updated)
+              await salvarAvaliacao(pid, updated)
+            }}
+          />
           </div>
         </div>
 
@@ -1056,6 +1126,15 @@ _Respirar Fisioterapeutas_
                   </span>
                   <Tag tone={tone}>{classe}</Tag>
                 </div>
+                <ObsField
+                  label="Observações — SPPB"
+                  value={ev.sppb?.obs || ''}
+                  onSave={async (texto) => {
+                    const updated = { ...ev, sppb: { ...ev.sppb, obs: texto } }
+                    setEv(updated)
+                    await salvarAvaliacao(pid, updated)
+                  }}
+                />
                 <RefBox>
                   Guralnik JM et al. J Gerontol. 1994;49(2):M85-94 — escore 0–3 incapacidade grave,
                   4–6 moderada, 7–9 leve, 10–12 normal
@@ -1121,8 +1200,19 @@ _Respirar Fisioterapeutas_
                   ) : (
                     <li>Realizou o teste sem paradas.</li>
                   )}
-                  {ev.tc6.obs && <li>{ev.tc6.obs}</li>}
                 </ul>
+                <div style={{ marginTop: 8 }}>
+                  <EditableField
+                    value={ev.tc6.obs}
+                    placeholder="Observações do TC6…"
+                    rows={2}
+                    onChange={async (texto) => {
+                      const updated = { ...ev, tc6: { ...ev.tc6, obs: texto } }
+                      setEv(updated)
+                      await salvarAvaliacao(pid, updated)
+                    }}
+                  />
+                </div>
                 {fcMax6 && (
                   <div className="rep-table-wrap">
                     <table className="rep-table" style={{ marginTop: 12 }}>
@@ -1289,9 +1379,20 @@ _Respirar Fisioterapeutas_
                     {classificacao && (
                       <p style={{ fontWeight: 600, marginBottom: 4 }}>Achados: {classificacao}</p>
                     )}
-                    {achados && <p style={{ lineHeight: 1.55 }}>{achados}</p>}
                   </div>
                 )}
+                <div style={{ marginTop: 10 }}>
+                  <EditableField
+                    value={achados}
+                    placeholder="Descrição dos achados espirométricos…"
+                    rows={3}
+                    onChange={async (texto) => {
+                      const updated = { ...ev, espiro: { ...ev.espiro, achados: texto } }
+                      setEv(updated)
+                      await salvarAvaliacao(pid, updated)
+                    }}
+                  />
+                </div>
                 {(imagens ?? []).length > 0 && (
                   <div style={{ marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     {imagens.map((img, i) => (
@@ -1397,6 +1498,15 @@ _Respirar Fisioterapeutas_
                       : ''}
                   </p>
                 )}
+                <ObsField
+                  label="Observações — Dinamometria"
+                  value={ev.dinamo?.obs || ''}
+                  onSave={async (texto) => {
+                    const updated = { ...ev, dinamo: { ...ev.dinamo, obs: texto } }
+                    setEv(updated)
+                    await salvarAvaliacao(pid, updated)
+                  }}
+                />
                 <RefBox>
                   Meldrum SJ et al. Physiol Meas. 2007 — predito calculado por sexo e idade
                 </RefBox>
@@ -1635,9 +1745,17 @@ _Respirar Fisioterapeutas_
               style={{ height: 38, marginBottom: 4, display: 'block' }}
             />
           )}
-          <div style={{ fontWeight: 600, color: 'var(--navy)', fontSize: 13 }}>
-            {ev.profissional}
-          </div>
+          <EditableField
+            inline
+            value={ev.profissional}
+            placeholder="Nome do profissional e CREFITO…"
+            rows={1}
+            onChange={async (texto) => {
+              const updated = { ...ev, profissional: texto }
+              setEv(updated)
+              await salvarAvaliacao(pid, updated)
+            }}
+          />
           <div className="text-sub" style={{ marginTop: 4 }}>
             Av. Hermes da Fonseca, 390 — Lj 05 · Petrópolis, Natal/RN · (84) 9 9168-8285 ·
             @respirarfisioterapeutas
