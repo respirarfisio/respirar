@@ -31,8 +31,6 @@ import {
   predBiceps,
   predCVF,
   predVEF1,
-  vo2TC6,
-  vo2ToMETs,
   classTC6Pct,
   assimetria,
   sppbTotal,
@@ -871,9 +869,6 @@ _Respirar Fisioterapeutas_
             <br />
             TD6' (Albuquerque et al, 2019): (166,9 – idade) + (0,7 × FC) + (20,7 × sexo; Masc: 1,
             Fem: 0)
-            <br />
-            ACSM (2018): VO₂pico = (0,02 × distância [m]) – (0,191 × idade) – (0,07 × peso [kg]) +
-            (0,09 × altura [cm]) + (0,26 × PTP ×10⁻³) + 2,45
           </div>
 
           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--sub)' }}>
@@ -1151,8 +1146,6 @@ _Respirar Fisioterapeutas_
             const dist = num(ev.tc6.distancia)
             const predDist = num(ev.tc6.preditoDist) ?? r1(predTC6(idade, sexo))
             const pctDist = pct(dist, predDist)
-            const vo2 = vo2TC6(dist, idade, peso, altura)
-            const mets = vo2ToMETs(vo2)
             const fcMax6 = num(ev.tc6.fcMax)
             const fcRec1 = num(ev.tc6.fcRec1)
             const fcRec3 = num(ev.tc6.fcRec3)
@@ -1188,11 +1181,6 @@ _Respirar Fisioterapeutas_
                     <li>
                       Percurso de <b>{num(ev.tc6.distVolta)} m por volta</b>, totalizando{' '}
                       <b>{num(ev.tc6.nVoltas)} volta(s)</b> completadas.
-                    </li>
-                  )}
-                  {vo2 && (
-                    <li>
-                      VO₂pico estimado (ACSM 2018): <b>{vo2} mℓ·kg⁻¹·min⁻¹</b> ({mets} METs).
                     </li>
                   )}
                   {ev.tc6.nParadas ? (
